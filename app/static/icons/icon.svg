@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ChipMate">
+  <rect width="512" height="512" rx="96" fill="#10100f"/>
+  <path d="M118 324h276v46H118z" fill="#65c587"/>
+  <path d="M150 142h212l42 62-42 62H150l-42-62z" fill="#24241f" stroke="#e2b45d" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="256" cy="204" r="54" fill="#65c587"/>
+  <circle cx="256" cy="204" r="24" fill="#10100f"/>
+  <path d="M164 371h184v36H164z" fill="#f2f0e8"/>
+</svg>

@@ -1,0 +1,1 @@
+"""ChipMate application package."""
