@@ -18,10 +18,10 @@ MATERIAL_SFM = {
 REFERENCE_SOURCES = [
     {
         "slug": "machinery-handbook",
-        "title": "Machinery's Handbook",
+        "title": "Machinery’s Handbook 27th Edition, 2004",
         "publisher": "Industrial Press",
-        "url": "",
-        "note": "General machining formulas, thread data, fits, tap drill references, and shop math. Use the controlled edition available in your shop.",
+        "url": "local://reference/machinery-handbook-27th.pdf",
+        "note": "Local reference at reference/machinery-handbook-27th.pdf. Use as a source label and curated lookup reference; do not quote large handbook sections in generated answers.",
         "is_placeholder": 0,
     },
     {

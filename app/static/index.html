@@ -36,6 +36,7 @@
             spellcheck="true"
             placeholder="Ask about 1/4-20 tap drills, true position, 6061 speeds, G54 offsets..."
           ></textarea>
+          <div id="typingSuggestions" class="typing-suggestions" aria-label="Typing suggestions" hidden></div>
           <div class="composer-actions">
             <button id="askButton" class="send-button" type="submit">Ask</button>
           </div>
@@ -55,6 +56,24 @@
           <button type="button" data-slug="reamers" data-category="Reamers">Reamers</button>
           <button type="button" data-slug="threading" data-category="Threading">Threading</button>
         </div>
+
+        <section class="memory-section" aria-label="Saved searches">
+          <article id="recentPanel" class="memory-panel" hidden>
+            <div class="memory-panel-header">
+              <h3>Recent Searches</h3>
+              <button id="clearRecentButton" class="plain-button compact-button" type="button">Clear</button>
+            </div>
+            <div id="recentList" class="memory-list"></div>
+          </article>
+
+          <article id="favoritesPanel" class="memory-panel" hidden>
+            <div class="memory-panel-header">
+              <h3>Favorites</h3>
+              <button id="clearFavoritesButton" class="plain-button compact-button" type="button">Clear</button>
+            </div>
+            <div id="favoritesList" class="memory-list"></div>
+          </article>
+        </section>
       </section>
 
       <section id="answer" class="responses" aria-live="polite"></section>

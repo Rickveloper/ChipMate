@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ChipMate",
-    version="0.2.0",
+    version="0.3.0",
     description="Offline-first machining assistant for shop questions, formulas, references, and local calculation helpers.",
     lifespan=lifespan,
 )
@@ -33,6 +33,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class AssistantRequest(BaseModel):
     message: str = Field(default="", max_length=1200)
+    context: str = Field(default="", max_length=240)
     state: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -53,7 +54,7 @@ def service_worker() -> FileResponse:
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
 @app.get("/api/categories")
@@ -65,7 +66,7 @@ def categories() -> dict[str, list[dict[str, str]]]:
 def assistant(request: AssistantRequest) -> dict[str, Any]:
     with get_connection(DB_PATH) as conn:
         try:
-            return build_assistant_response(conn, request.message, request.state)
+            return build_assistant_response(conn, request.message, request.state, request.context)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 

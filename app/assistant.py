@@ -161,24 +161,46 @@ RESPONSE_TEMPLATES = {
     },
 }
 
+REFINEMENT_LABELS = {
+    "material-context": "Material Context",
+    "topic-focus": "Focused Follow-up",
+    "math-check": "Math Check",
+    "inspection-checks": "Inspection Checks",
+    "troubleshooting": "Troubleshooting",
+    "shop-checklist": "Shop Checklist",
+    "plain-english": "Plain English",
+}
 
-def build_assistant_response(conn: sqlite3.Connection, message: str, prior_state: dict[str, Any] | None = None) -> dict[str, Any]:
+TAP_THREAD_MATERIAL_ACTIONS = [
+    {"label": "Aluminum", "material": "aluminum", "context": "Use aluminum as the material context for this tap drill or threading question."},
+    {"label": "Mild Steel", "material": "mild steel", "context": "Use mild steel as the material context for this tap drill or threading question."},
+    {"label": "Stainless", "material": "stainless steel", "context": "Use stainless steel as the material context for this tap drill or threading question."},
+    {"label": "Brass", "material": "brass", "context": "Use brass as the material context for this tap drill or threading question."},
+    {"label": "Cast Iron", "material": "cast iron", "context": "Use cast iron as the material context for this tap drill or threading question."},
+]
+
+
+def build_assistant_response(conn: sqlite3.Connection, message: str, prior_state: dict[str, Any] | None = None, refinement_context: str | None = None) -> dict[str, Any]:
     query = (message or "").strip()
     if not query:
         return {"status": "ready", "categories": CATEGORIES, "answer": None, "query": ""}
 
     state = normalize_state(prior_state or {})
+    refinement = normalize_refinement_context(refinement_context)
     detected = parse_message(query)
+    context_detected = parse_message(refinement["context"]) if refinement else {}
     state.update({key: value for key, value in detected.items() if value is not None})
+    state.update({key: value for key, value in context_detected.items() if value is not None})
     category = classify_query(query)
     tool_results = run_calculation_tools(conn, query, state)
-    answer = compose_answer(conn, query, category, tool_results)
+    answer = compose_answer(conn, query, category, tool_results, refinement)
     return {
         "status": "answer",
         "query": query,
+        "refinement_context": refinement,
         "category": category,
         "categories": CATEGORIES,
-        "detected": detected,
+        "detected": {**detected, **{key: value for key, value in context_detected.items() if value is not None}},
         "state": public_state(state),
         "tool_results": tool_results,
         "answer": answer,
@@ -224,26 +246,172 @@ def category_by_slug(slug: str) -> dict[str, str]:
     return next((category for category in CATEGORIES if category["slug"] == slug), CATEGORIES[0])
 
 
-def compose_answer(conn: sqlite3.Connection, query: str, category: dict[str, str], tool_results: list[dict[str, Any]]) -> dict[str, Any]:
+def compose_answer(conn: sqlite3.Connection, query: str, category: dict[str, str], tool_results: list[dict[str, Any]], refinement: dict[str, str] | None = None) -> dict[str, Any]:
     template = RESPONSE_TEMPLATES[category["slug"]]
     override = specialized_answer_override(query, category)
     direct_answer = override.get("direct_answer") if override else specialized_direct_answer(query, category, tool_results) or template["direct"]
-    base_formulas = override.get("formulas", template["formulas"]) if override else template["formulas"]
+    base_formulas = list(override.get("formulas", template["formulas"]) if override else template["formulas"])
     formulas = merge_formulas(base_formulas, tool_results)
     source_slugs = list(override.get("sources", template["sources"]) if override else template["sources"])
     for result in tool_results:
         source = result.get("source")
         if source and source.get("slug"):
             source_slugs.append(source["slug"])
-    return {
+    answer = {
         "title": override.get("title", category["name"]) if override else category["name"],
         "direct_answer": direct_answer,
-        "steps": override.get("steps", template["steps"]) if override else template["steps"],
+        "steps": list(override.get("steps", template["steps"]) if override else template["steps"]),
         "formulas": formulas,
         "sources": lookup_sources(conn, source_slugs),
-        "related_topics": override.get("related_topics", template["related"]) if override else template["related"],
+        "related_topics": list(override.get("related_topics", template["related"]) if override else template["related"]),
+        "refinement_actions": build_refinement_actions(category, tool_results),
         "note": "Use this as shop guidance, then verify against the current print, tooling data, machine limits, and inspection requirements before cutting production parts.",
     }
+    return apply_refinement(answer, refinement)
+
+
+def build_refinement_actions(category: dict[str, str], tool_results: list[dict[str, Any]]) -> list[dict[str, str]]:
+    has_tap_drill_result = any(result.get("type") == "tap_drill" for result in tool_results)
+    if category["slug"] not in {"tap-drill-charts", "threading"} and not has_tap_drill_result:
+        return []
+    return [
+        {
+            "label": action["label"],
+            "context": action["context"],
+            "type": "material",
+            "material": action["material"],
+        }
+        for action in TAP_THREAD_MATERIAL_ACTIONS
+    ]
+
+
+def normalize_refinement_context(context: str | None) -> dict[str, str] | None:
+    text = (context or "").strip()
+    if not text:
+        return None
+    lowered = text.lower()
+    material = normalize_alias(text, MATERIAL_ALIASES)
+    if material:
+        key = "material-context"
+    elif any(term in lowered for term in ("formula", "calculate", "calculation", "math", "rpm", "sfm", "feed")):
+        key = "math-check"
+    elif any(term in lowered for term in ("inspect", "inspection", "measure", "gage", "gauge", "first-piece", "first piece")):
+        key = "inspection-checks"
+    elif any(term in lowered for term in ("troubleshoot", "problem", "chatter", "wear", "finish", "bellmouth", "mistake")):
+        key = "troubleshooting"
+    elif any(term in lowered for term in ("plain english", "simple", "explain")):
+        key = "plain-english"
+    elif any(term in lowered for term in ("setup", "checklist", "dry run", "offset", "datum", "workholding")):
+        key = "shop-checklist"
+    else:
+        key = "topic-focus"
+    label = material_display_name(material) if material else REFINEMENT_LABELS[key]
+    refinement = {"key": key, "label": label, "context": text}
+    if material:
+        refinement["material"] = material
+    return refinement
+
+
+def material_display_name(material: str) -> str:
+    return {
+        "aluminum": "Aluminum",
+        "mild steel": "Mild Steel",
+        "stainless steel": "Stainless",
+        "brass": "Brass",
+        "cast iron": "Cast Iron",
+        "tool steel": "Tool Steel",
+    }.get(material, material.title())
+
+
+def apply_refinement(answer: dict[str, Any], refinement: dict[str, str] | None) -> dict[str, Any]:
+    if not refinement:
+        return answer
+
+    key = refinement["key"]
+    context = refinement["context"]
+    answer["refinement"] = refinement
+    answer["title"] = f"{answer['title']} - {refinement['label']}"
+
+    if key == "material-context":
+        material = refinement.get("material", context)
+        answer["direct_answer"] = f"{answer['direct_answer']} For {material}, keep the handbook or chart drill size as the starting point, then tune tapping fluid, chip clearing, and thread percentage to the material and required fit."
+        answer["steps"] = [
+            f"Treat the selected material as {material} for this follow-up.",
+            *material_threading_steps(material),
+            *answer["steps"],
+        ]
+    elif key == "math-check":
+        answer["direct_answer"] = f"{answer['direct_answer']} This pass emphasizes the arithmetic, units, and assumptions behind the recommendation."
+        answer["steps"] = [
+            "Write each known value with units before choosing a formula.",
+            "Run the calculation and round to a practical machine setting.",
+            "Compare the result with tooling manufacturer data or a shop standard before cutting.",
+            *answer["steps"],
+        ]
+    elif key == "inspection-checks":
+        answer["direct_answer"] = f"{answer['direct_answer']} This pass emphasizes how to verify the result at the machine or bench."
+        answer["steps"] = [
+            "Identify the print requirement, datum reference, tolerance, and finish requirement that prove the operation worked.",
+            "Choose a measuring method with enough resolution and access for the feature.",
+            "Inspect the first piece before removing the setup or changing offsets.",
+            *answer["steps"],
+        ]
+    elif key == "troubleshooting":
+        answer["direct_answer"] = f"{answer['direct_answer']} This pass emphasizes what to check when the result is noisy, oversized, undersized, worn, or unstable."
+        answer["steps"] = [
+            "Look for the symptom first: chatter, rubbing, heat, poor finish, size drift, chip packing, or rapid tool wear.",
+            "Change one variable at a time so the cause is visible.",
+            "Recheck workholding, tool runout, stickout, cutting data, coolant, and measurement setup before blaming the material.",
+            *answer["steps"],
+        ]
+    elif key == "shop-checklist":
+        answer["direct_answer"] = f"{answer['direct_answer']} This pass turns the answer into a setup checklist."
+        answer["steps"] = [
+            "Confirm the current print revision, material, units, tolerance, and finish requirement.",
+            "Verify the setup, tool, holder, offsets, clearance, and measuring method before starting.",
+            "Make the first cut conservatively and inspect before committing to the rest of the job.",
+            *answer["steps"],
+        ]
+    elif key == "plain-english":
+        answer["direct_answer"] = f"{answer['direct_answer']} In plain terms: decide what feature matters, choose a conservative method, make one controlled change, then verify it with the right gage or calculation."
+    else:
+        answer["direct_answer"] = f"{answer['direct_answer']} This pass keeps the answer focused on: {context}"
+        answer["steps"] = [
+            f"Use {context} as the lens for the same question.",
+            "Keep the original print, material, tooling, and machine limits in view while narrowing the answer.",
+            *answer["steps"],
+        ]
+
+    return answer
+
+
+def material_threading_steps(material: str) -> list[str]:
+    if material == "aluminum":
+        return [
+            "Use a sharp tap and suitable cutting fluid or mist to reduce built-up edge.",
+            "Clear chips often in blind holes because aluminum can pack flutes quickly.",
+        ]
+    if material == "mild steel":
+        return [
+            "Use cutting oil and a steady feed so the tap cuts instead of rubbing.",
+            "Back out or use a spiral-point or spiral-flute tap based on whether the hole is through or blind.",
+        ]
+    if material == "stainless steel":
+        return [
+            "Use a sharp tap, positive feed, and strong cutting fluid to avoid work hardening.",
+            "Avoid dwelling or repeated partial starts that rub the thread instead of cutting it.",
+        ]
+    if material == "brass":
+        return [
+            "Use a tap geometry that will not grab in free-machining brass.",
+            "Keep chips clear, but avoid excessive lubrication if the shop standard calls for tapping brass dry.",
+        ]
+    if material == "cast iron":
+        return [
+            "Expect powdery chips and keep abrasive dust away from slides, ways, and measuring tools.",
+            "Use the shop standard for dry tapping or light lubricant based on the iron grade and tap style.",
+        ]
+    return ["Adjust tapping fluid, chip clearing, and tap geometry for the selected material."]
 
 
 def specialized_answer_override(query: str, category: dict[str, str]) -> dict[str, Any] | None:

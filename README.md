@@ -1,6 +1,6 @@
 # ChipMate
 
-ChipMate is an offline-first Machinist Copilot backed by FastAPI, SQLite, and a mobile-friendly PWA shell. It answers general machining questions with a direct answer, practical steps, formulas, sources, and related topics.
+ChipMate is an offline-first Machinist Copilot backed by FastAPI, SQLite, and a mobile-friendly PWA shell. It answers general machining questions with a direct answer, practical steps, formulas, sources, and contextual after-answer refinements.
 
 The assistant covers:
 
@@ -24,6 +24,10 @@ RPM = SFM * 3.82 / diameter
 ```
 
 Local SFM values are conservative seed data stored in SQLite with source records. Replace them with verified tooling manufacturer or shop-approved data before using them for production decisions.
+
+v0.3 adds typing suggestions, recent searches, favorites, and refinement buttons that resubmit the current question with extra context. Recent searches and favorites are stored in browser localStorage.
+
+The local source list includes `reference/machinery-handbook-27th.pdf` as Machinery's Handbook 27th Edition, 2004. ChipMate uses that handbook as a local source label and curated lookup reference; generated answers should not quote large handbook sections.
 
 ## Requirements
 
