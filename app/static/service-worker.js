@@ -1,4 +1,4 @@
-const CACHE_NAME = "chipmate-v0-1";
+const CACHE_NAME = "chipmate-v0-2";
 const ASSETS = [
   "/",
   "/static/index.html",

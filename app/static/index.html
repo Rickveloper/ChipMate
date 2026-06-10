@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#10100f" />
+    <meta name="theme-color" content="#f6f7f8" />
     <title>ChipMate</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml" />
@@ -11,62 +11,53 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <p class="eyebrow">ChipMate v0.1</p>
-        <h1>Reamer RPM</h1>
+      <div class="brand" aria-label="ChipMate">
+        <span class="brand-mark">CM</span>
+        <span>ChipMate</span>
       </div>
-      <span id="connectionStatus" class="status-pill">Checking</span>
+      <div class="top-actions">
+        <button id="newButton" class="plain-button" type="button">New</button>
+        <span id="connectionStatus" class="status-pill">Checking</span>
+      </div>
     </header>
 
     <main class="shell">
-      <section class="tool-panel" aria-labelledby="assistantTitle">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Assistant</p>
-            <h2 id="assistantTitle">Guided setup</h2>
-          </div>
-          <button id="resetButton" class="ghost-button" type="button">Reset</button>
-        </div>
+      <section class="hero" aria-labelledby="appTitle">
+        <p class="eyebrow">Machinist Copilot</p>
+        <h1 id="appTitle">ChipMate</h1>
 
-        <form id="assistantForm" class="ask-form">
-          <label for="messageInput">Question</label>
+        <form id="assistantForm" class="composer">
+          <label class="sr-only" for="messageInput">Machining question</label>
           <textarea
             id="messageInput"
             name="message"
-            rows="3"
+            rows="2"
             autocomplete="off"
-            spellcheck="false"
-            placeholder="how fast should I spin a .503 reamer"
+            spellcheck="true"
+            placeholder="Ask about 1/4-20 tap drills, true position, 6061 speeds, G54 offsets..."
           ></textarea>
-          <button class="primary-button" type="submit">Ask</button>
-        </form>
-
-        <div class="quick-row" aria-label="Examples">
-          <button type="button" data-example="how fast should I spin a .503 reamer">.503 reamer</button>
-          <button type="button" data-example=".375 carbide reamer aluminum mill coolant">Full setup</button>
-        </div>
-
-        <div id="stateSummary" class="state-grid" aria-live="polite"></div>
-        <div id="followups" class="followups" aria-live="polite"></div>
-        <div id="answer" class="answer" aria-live="polite"></div>
-      </section>
-
-      <section class="tool-panel source-panel" aria-labelledby="searchTitle">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">SQLite FTS5</p>
-            <h2 id="searchTitle">Source search</h2>
-          </div>
-        </div>
-        <form id="searchForm" class="search-form">
-          <label for="searchInput">Search</label>
-          <div class="search-row">
-            <input id="searchInput" type="search" placeholder="aluminum hss coolant" />
-            <button class="secondary-button" type="submit">Find</button>
+          <div class="composer-actions">
+            <button id="askButton" class="send-button" type="submit">Ask</button>
           </div>
         </form>
-        <div id="searchResults" class="search-results"></div>
+
+        <div id="categoryRail" class="category-rail" aria-label="Machining categories">
+          <button type="button" data-slug="speeds-feeds" data-category="Speeds & Feeds">Speeds &amp; Feeds</button>
+          <button type="button" data-slug="tooling" data-category="Tooling">Tooling</button>
+          <button type="button" data-slug="materials" data-category="Materials">Materials</button>
+          <button type="button" data-slug="gdt" data-category="GD&T">GD&amp;T</button>
+          <button type="button" data-slug="inspection" data-category="Inspection">Inspection</button>
+          <button type="button" data-slug="blueprint-reading" data-category="Blueprint Reading">Blueprint Reading</button>
+          <button type="button" data-slug="manual-machining" data-category="Manual Machining">Manual Machining</button>
+          <button type="button" data-slug="cnc" data-category="CNC">CNC</button>
+          <button type="button" data-slug="formulas" data-category="Formulas">Formulas</button>
+          <button type="button" data-slug="tap-drill-charts" data-category="Tap Drill Charts">Tap Drill Charts</button>
+          <button type="button" data-slug="reamers" data-category="Reamers">Reamers</button>
+          <button type="button" data-slug="threading" data-category="Threading">Threading</button>
+        </div>
       </section>
+
+      <section id="answer" class="responses" aria-live="polite"></section>
     </main>
 
     <script src="/static/app.js" defer></script>

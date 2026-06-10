@@ -1,237 +1,265 @@
-const STORAGE_KEY = "chipmate-reamer-state-v0.1";
+const FALLBACK_CATEGORIES = [
+  { name: "Speeds & Feeds", slug: "speeds-feeds" },
+  { name: "Tooling", slug: "tooling" },
+  { name: "Materials", slug: "materials" },
+  { name: "GD&T", slug: "gdt" },
+  { name: "Inspection", slug: "inspection" },
+  { name: "Blueprint Reading", slug: "blueprint-reading" },
+  { name: "Manual Machining", slug: "manual-machining" },
+  { name: "CNC", slug: "cnc" },
+  { name: "Formulas", slug: "formulas" },
+  { name: "Tap Drill Charts", slug: "tap-drill-charts" },
+  { name: "Reamers", slug: "reamers" },
+  { name: "Threading", slug: "threading" },
+];
 
 const form = document.querySelector("#assistantForm");
 const input = document.querySelector("#messageInput");
-const resetButton = document.querySelector("#resetButton");
-const followupsEl = document.querySelector("#followups");
+const askButton = document.querySelector("#askButton");
+const newButton = document.querySelector("#newButton");
+const categoryRail = document.querySelector("#categoryRail");
 const answerEl = document.querySelector("#answer");
-const stateEl = document.querySelector("#stateSummary");
 const statusEl = document.querySelector("#connectionStatus");
-const searchForm = document.querySelector("#searchForm");
-const searchInput = document.querySelector("#searchInput");
-const searchResults = document.querySelector("#searchResults");
 
-let state = loadState();
+let activeCategorySlug = "";
 
-function loadState() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch {
-    return {};
-  }
+function clearNode(node) {
+  while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function createElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined && text !== null) element.textContent = text;
+  return element;
+}
+
+function setConnectionStatus(label, status) {
+  statusEl.textContent = label;
+  statusEl.classList.toggle("online", status === "online");
+  statusEl.classList.toggle("offline", status === "offline");
 }
 
 function updateConnectionStatus() {
-  const online = navigator.onLine;
-  statusEl.textContent = online ? "Online" : "Offline";
-  statusEl.classList.toggle("online", online);
-  statusEl.classList.toggle("offline", !online);
-}
-
-function titleCase(value) {
-  if (value === true) return "Yes";
-  if (value === false) return "No";
-  if (value === undefined || value === null || value === "") return "Missing";
-  return String(value)
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatDiameter(value) {
-  if (!value) return "Missing";
-  return `${Number(value).toFixed(4).replace(/0+$/, "").replace(/\.$/, "")} in`;
-}
-
-function renderState() {
-  const items = [
-    ["Diameter", formatDiameter(state.diameter_in)],
-    ["Operation", "Reaming"],
-    ["Machine", titleCase(state.machine)],
-    ["Material", titleCase(state.material)],
-    ["Reamer", titleCase(state.tool_material)],
-    ["Coolant", titleCase(state.coolant)],
-  ];
-
-  stateEl.innerHTML = items
-    .map(
-      ([label, value]) => `
-        <div class="state-item">
-          <span>${label}</span>
-          <strong>${value}</strong>
-        </div>
-      `,
-    )
-    .join("");
-}
-
-function renderFollowups(missing) {
-  followupsEl.innerHTML = "";
-  if (!missing || missing.length === 0) return;
-
-  followupsEl.innerHTML = missing
-    .map((item) => {
-      if (item.input_type === "number") {
-        return `
-          <div class="followup" data-field="${item.field}">
-            <p>${item.question}</p>
-            <div class="inline-entry">
-              <input inputmode="decimal" type="number" min="0.01" max="6" step="0.001" placeholder="0.503" />
-              <button class="secondary-button" type="button">Set</button>
-            </div>
-          </div>
-        `;
-      }
-      const buttons = item.options
-        .map(
-          (option) => `
-            <button
-              class="choice-button"
-              type="button"
-              data-field="${item.field}"
-              data-value="${String(option.value)}"
-            >
-              ${option.label}
-            </button>
-          `,
-        )
-        .join("");
-      return `
-        <div class="followup" data-field="${item.field}">
-          <p>${item.question}</p>
-          <div class="choice-grid">${buttons}</div>
-        </div>
-      `;
-    })
-    .join("");
-
-  followupsEl.querySelectorAll(".choice-button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const field = button.dataset.field;
-      const rawValue = button.dataset.value;
-      state[field] = rawValue === "true" ? true : rawValue === "false" ? false : rawValue;
-      saveState();
-      ask("");
-    });
-  });
-
-  followupsEl.querySelectorAll(".inline-entry").forEach((row) => {
-    const field = row.closest(".followup").dataset.field;
-    const numberInput = row.querySelector("input");
-    const button = row.querySelector("button");
-    button.addEventListener("click", () => {
-      const value = Number(numberInput.value);
-      if (Number.isFinite(value) && value > 0) {
-        state[field] = value;
-        saveState();
-        ask("");
-      }
-    });
-  });
-}
-
-function renderAnswer(answer) {
-  if (!answer) {
-    answerEl.innerHTML = "";
+  if (!navigator.onLine) {
+    setConnectionStatus("Offline", "offline");
     return;
   }
-  answerEl.innerHTML = `
-    <div class="rpm-readout">
-      <span class="unit">Recommended spindle speed</span>
-      <strong class="number">${answer.rpm}</strong>
-      <span class="unit">RPM</span>
-    </div>
-    <div class="answer-details">
-      <div class="detail-row"><strong>SFM:</strong> ${answer.sfm}</div>
-      <div class="detail-row"><strong>Formula:</strong> ${answer.formula} = ${answer.rpm} RPM</div>
-      <div class="citation"><strong>Source:</strong> ${answer.citation}</div>
-      <div class="warning">${answer.placeholder_warning}</div>
-    </div>
-  `;
+  setConnectionStatus("Online", "online");
+}
+
+async function checkHealth() {
+  updateConnectionStatus();
+  if (!navigator.onLine) return;
+  try {
+    const response = await fetch("/api/health", { cache: "no-store" });
+    if (!response.ok) throw new Error("Health check failed");
+    setConnectionStatus("Ready", "online");
+  } catch {
+    setConnectionStatus("Offline", "offline");
+  }
+}
+
+function renderCategories(categories) {
+  clearNode(categoryRail);
+  categories.forEach((category) => {
+    const button = createElement("button", "", category.name);
+    button.type = "button";
+    button.dataset.slug = category.slug;
+    button.dataset.category = category.name;
+    button.classList.toggle("active", category.slug === activeCategorySlug);
+    button.addEventListener("click", () => {
+      const prompt = `Give me practical guidance on ${category.name}.`;
+      input.value = prompt;
+      ask(prompt);
+    });
+    categoryRail.appendChild(button);
+  });
+}
+
+async function loadCategories() {
+  try {
+    const response = await fetch("/api/categories", { cache: "no-store" });
+    if (!response.ok) throw new Error("Category request failed");
+    const data = await response.json();
+    renderCategories(data.categories || FALLBACK_CATEGORIES);
+  } catch {
+    renderCategories(FALLBACK_CATEGORIES);
+  }
+}
+
+function renderLoading(query) {
+  clearNode(answerEl);
+  const article = createElement("article", "answer-card loading-card");
+  article.appendChild(createElement("p", "answer-kicker", "Working"));
+  article.appendChild(createElement("h2", "", query || "Machining question"));
+  answerEl.appendChild(article);
 }
 
 function renderError(message) {
-  answerEl.innerHTML = `<div class="error-note">${message}</div>`;
+  clearNode(answerEl);
+  const article = createElement("article", "error-note");
+  article.textContent = message;
+  answerEl.appendChild(article);
+}
+
+function appendTextSection(parent, title, text) {
+  const section = createElement("section", "answer-section");
+  section.appendChild(createElement("h3", "", title));
+  section.appendChild(createElement("p", "", text || "No detail returned."));
+  parent.appendChild(section);
+}
+
+function appendSteps(parent, steps) {
+  const section = createElement("section", "answer-section");
+  section.appendChild(createElement("h3", "", "Steps"));
+  if (!steps || !steps.length) {
+    section.appendChild(createElement("p", "", "No step sequence needed for this answer."));
+    parent.appendChild(section);
+    return;
+  }
+  const list = createElement("ol", "step-list");
+  steps.forEach((step) => {
+    list.appendChild(createElement("li", "", step));
+  });
+  section.appendChild(list);
+  parent.appendChild(section);
+}
+
+function appendFormulas(parent, formulas) {
+  const section = createElement("section", "answer-section");
+  section.appendChild(createElement("h3", "", "Formulas"));
+  if (!formulas || !formulas.length) {
+    section.appendChild(createElement("p", "", "No formula is needed for this question."));
+    parent.appendChild(section);
+    return;
+  }
+  const list = createElement("div", "formula-list");
+  formulas.forEach((formula) => {
+    const item = createElement("div", "formula-item");
+    item.appendChild(createElement("strong", "", formula.label || "Formula"));
+    item.appendChild(createElement("code", "", formula.expression || ""));
+    list.appendChild(item);
+  });
+  section.appendChild(list);
+  parent.appendChild(section);
+}
+
+function appendSources(parent, sources) {
+  const section = createElement("section", "answer-section");
+  section.appendChild(createElement("h3", "", "Sources"));
+  if (!sources || !sources.length) {
+    section.appendChild(createElement("p", "", "No source records were returned."));
+    parent.appendChild(section);
+    return;
+  }
+  const list = createElement("div", "source-list");
+  sources.forEach((source) => {
+    const item = createElement("article", "source-item");
+    const heading = createElement("strong", "", source.title || source.slug || "Source");
+    item.appendChild(heading);
+    if (source.publisher) item.appendChild(createElement("span", "", source.publisher));
+    if (source.url && source.url.startsWith("http")) {
+      const link = createElement("a", "", source.url);
+      link.href = source.url;
+      link.rel = "noreferrer";
+      item.appendChild(link);
+    }
+    if (source.note) item.appendChild(createElement("p", "", source.note));
+    if (source.is_placeholder) item.appendChild(createElement("em", "", "Local seed data"));
+    list.appendChild(item);
+  });
+  section.appendChild(list);
+  parent.appendChild(section);
+}
+
+function appendRelated(parent, topics) {
+  const section = createElement("section", "answer-section");
+  section.appendChild(createElement("h3", "", "Related Topics"));
+  const row = createElement("div", "related-row");
+  (topics && topics.length ? topics : ["Speeds & feeds", "Inspection", "Tooling"]).forEach((topic) => {
+    const button = createElement("button", "", topic);
+    button.type = "button";
+    button.addEventListener("click", () => {
+      const prompt = `Ask about ${topic}.`;
+      input.value = prompt;
+      input.focus();
+    });
+    row.appendChild(button);
+  });
+  section.appendChild(row);
+  parent.appendChild(section);
+}
+
+function renderAnswer(data) {
+  clearNode(answerEl);
+  activeCategorySlug = data.category?.slug || "";
+  renderCategories(data.categories || FALLBACK_CATEGORIES);
+
+  const answer = data.answer;
+  if (!answer) return;
+
+  const article = createElement("article", "answer-card");
+  const header = createElement("header", "answer-header");
+  header.appendChild(createElement("p", "answer-kicker", answer.title || data.category?.name || "ChipMate"));
+  header.appendChild(createElement("h2", "", data.query || "Machining question"));
+  article.appendChild(header);
+
+  appendTextSection(article, "Direct Answer", answer.direct_answer);
+  appendSteps(article, answer.steps);
+  appendFormulas(article, answer.formulas);
+  appendSources(article, answer.sources);
+  appendRelated(article, answer.related_topics);
+
+  if (answer.note) {
+    const note = createElement("p", "answer-note", answer.note);
+    article.appendChild(note);
+  }
+
+  answerEl.appendChild(article);
 }
 
 async function ask(message) {
-  renderState();
+  const query = (message || "").trim();
+  if (!query) {
+    input.focus();
+    return;
+  }
+
+  askButton.disabled = true;
+  renderLoading(query);
+
   try {
     const response = await fetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, state }),
+      body: JSON.stringify({ message: query, state: {} }),
     });
     if (!response.ok) throw new Error(`Request failed: ${response.status}`);
     const data = await response.json();
-    state = data.state || state;
-    saveState();
-    renderState();
-    renderFollowups(data.missing || []);
-    renderAnswer(data.answer);
+    renderAnswer(data);
+    input.value = "";
   } catch (error) {
-    renderError(navigator.onLine ? error.message : "Offline. Saved inputs remain on this device.");
+    renderError(navigator.onLine ? error.message : "Offline. Reconnect to ask ChipMate.");
+  } finally {
+    askButton.disabled = false;
   }
 }
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  ask(input.value.trim());
-  input.value = "";
+  ask(input.value);
 });
 
-resetButton.addEventListener("click", () => {
-  state = {};
-  saveState();
-  renderState();
-  renderFollowups([]);
-  renderAnswer(null);
+newButton.addEventListener("click", () => {
+  input.value = "";
+  activeCategorySlug = "";
+  clearNode(answerEl);
+  renderCategories(FALLBACK_CATEGORIES);
   input.focus();
 });
 
-document.querySelectorAll("[data-example]").forEach((button) => {
-  button.addEventListener("click", () => {
-    input.value = button.dataset.example;
-    ask(input.value);
-    input.value = "";
-  });
-});
-
-searchForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const query = searchInput.value.trim();
-  if (!query) {
-    searchResults.innerHTML = "";
-    return;
-  }
-  try {
-    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error(`Search failed: ${response.status}`);
-    const data = await response.json();
-    if (!data.results.length) {
-      searchResults.innerHTML = `<div class="empty-note">No matches.</div>`;
-      return;
-    }
-    searchResults.innerHTML = data.results
-      .map(
-        (item) => `
-          <article class="search-result">
-            <h3>${item.title}</h3>
-            <p>${item.snippet || item.kind}</p>
-          </article>
-        `,
-      )
-      .join("");
-  } catch (error) {
-    searchResults.innerHTML = `<div class="error-note">${error.message}</div>`;
-  }
-});
-
-window.addEventListener("online", updateConnectionStatus);
+window.addEventListener("online", checkHealth);
 window.addEventListener("offline", updateConnectionStatus);
 
 if ("serviceWorker" in navigator) {
@@ -240,6 +268,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-updateConnectionStatus();
-renderState();
-if (Object.keys(state).length) ask("");
+checkHealth();
+loadCategories();
