@@ -9,11 +9,19 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .assistant import build_assistant_response, get_categories, search_index
-from .database import DB_PATH, get_connection, init_db
+from .assistant import (
+    COMMON_TAP_DRILLS,
+    RESPONSE_TEMPLATES,
+    build_assistant_response,
+    get_categories,
+    search_index,
+)
+from .database import DB_PATH, MATERIAL_SFM, REFERENCE_SOURCES, get_connection, init_db
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+REFERENCE_DIR = BASE_DIR.parent / "reference"
+HANDBOOK_PDF = REFERENCE_DIR / "machinery-handbook-27th.pdf"
 
 
 @asynccontextmanager
@@ -62,6 +70,22 @@ def categories() -> dict[str, list[dict[str, str]]]:
     return {"categories": get_categories()}
 
 
+@app.get("/api/offline/quick-reference")
+def offline_quick_reference() -> dict[str, Any]:
+    return {
+        "version": "0.3.0",
+        "categories": get_categories(),
+        "materials": MATERIAL_SFM,
+        "common_tap_drills": COMMON_TAP_DRILLS,
+        "formulas": {
+            slug: template["formulas"]
+            for slug, template in RESPONSE_TEMPLATES.items()
+            if template["formulas"]
+        },
+        "sources": REFERENCE_SOURCES,
+    }
+
+
 @app.post("/api/assistant")
 def assistant(request: AssistantRequest) -> dict[str, Any]:
     with get_connection(DB_PATH) as conn:
@@ -102,3 +126,15 @@ def sources() -> dict[str, list[dict[str, Any]]]:
             for row in rows
         ]
     }
+
+
+@app.get("/reference/machinery-handbook-27th.pdf")
+def machinery_handbook() -> FileResponse:
+    if not HANDBOOK_PDF.is_file():
+        raise HTTPException(status_code=404, detail="Machinery's Handbook PDF is not installed locally.")
+    return FileResponse(
+        HANDBOOK_PDF,
+        media_type="application/pdf",
+        filename=HANDBOOK_PDF.name,
+        headers={"Cache-Control": "no-store"},
+    )

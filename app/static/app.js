@@ -119,11 +119,40 @@ const favoritesPanel = document.querySelector("#favoritesPanel");
 const favoritesList = document.querySelector("#favoritesList");
 const clearRecentButton = document.querySelector("#clearRecentButton");
 const clearFavoritesButton = document.querySelector("#clearFavoritesButton");
+const offlineStorageStatus = document.querySelector("#offlineStorageStatus");
+const appShellCacheState = document.querySelector("#appShellCacheState");
+const quickReferenceCacheState = document.querySelector("#quickReferenceCacheState");
+const handbookCacheState = document.querySelector("#handbookCacheState");
+const cacheAppShellButton = document.querySelector("#cacheAppShellButton");
+const cacheQuickReferenceButton = document.querySelector("#cacheQuickReferenceButton");
+const cacheHandbookButton = document.querySelector("#cacheHandbookButton");
+const clearOfflineCacheButton = document.querySelector("#clearOfflineCacheButton");
 
 let activeCategorySlug = "";
 let currentCategories = FALLBACK_CATEGORIES;
 let lastAnswerData = null;
 let lastQuestion = "";
+let offlineStorageSupported = false;
+let offlineServiceWorker = null;
+let offlineServiceWorkerRegistration = null;
+
+const OFFLINE_CACHE_CONTROLS = [
+  {
+    group: "appShell",
+    button: cacheAppShellButton,
+    state: appShellCacheState,
+  },
+  {
+    group: "quickReference",
+    button: cacheQuickReferenceButton,
+    state: quickReferenceCacheState,
+  },
+  {
+    group: "handbook",
+    button: cacheHandbookButton,
+    state: handbookCacheState,
+  },
+];
 
 function clearNode(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
@@ -256,6 +285,140 @@ function updateConnectionStatus() {
     return;
   }
   setConnectionStatus("Online", "online");
+}
+
+function setOfflineStorageStatus(label, tone = "") {
+  offlineStorageStatus.textContent = label;
+  offlineStorageStatus.classList.toggle("ready", tone === "ready");
+  offlineStorageStatus.classList.toggle("error", tone === "error");
+}
+
+function setOfflineControlsEnabled(enabled) {
+  const active = offlineStorageSupported && enabled;
+  OFFLINE_CACHE_CONTROLS.forEach(({ button }) => {
+    button.disabled = !active;
+  });
+  clearOfflineCacheButton.disabled = !active;
+}
+
+function setCacheState(element, cached) {
+  element.textContent = cached ? "Cached" : "Not cached";
+  element.classList.toggle("cached", cached);
+}
+
+function renderOfflineCacheStatus(groups = {}) {
+  OFFLINE_CACHE_CONTROLS.forEach(({ group, button, state }) => {
+    const cached = Boolean(groups[group]);
+    setCacheState(state, cached);
+    button.setAttribute("aria-pressed", cached ? "true" : "false");
+  });
+}
+
+async function getActiveServiceWorker() {
+  if (offlineServiceWorker) return offlineServiceWorker;
+  const registration = offlineServiceWorkerRegistration || (await navigator.serviceWorker.ready);
+  return registration.active || navigator.serviceWorker.controller || registration.waiting || registration.installing;
+}
+
+function waitForServiceWorkerActivation(registration) {
+  const worker = registration.installing || registration.waiting || registration.active;
+  if (!worker) {
+    return navigator.serviceWorker.ready.then((readyRegistration) => readyRegistration.active);
+  }
+  if (worker.state === "activated") return Promise.resolve(worker);
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error("Service worker activation timed out."));
+    }, 8000);
+
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") {
+        window.clearTimeout(timeout);
+        resolve(worker);
+      }
+    });
+  });
+}
+
+async function sendServiceWorkerMessage(message) {
+  if (!("serviceWorker" in navigator) || !("MessageChannel" in window)) {
+    throw new Error("Offline cache controls are not available in this browser.");
+  }
+
+  const worker = await getActiveServiceWorker();
+  if (!worker) throw new Error("Service worker is not ready.");
+
+  return new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timeout = window.setTimeout(() => {
+      reject(new Error("Service worker did not respond."));
+    }, 8000);
+
+    channel.port1.onmessage = (event) => {
+      window.clearTimeout(timeout);
+      const data = event.data || {};
+      if (data.ok) {
+        resolve(data);
+      } else {
+        reject(new Error(data.error || "Offline cache action failed."));
+      }
+    };
+
+    try {
+      worker.postMessage(message, [channel.port2]);
+    } catch (error) {
+      window.clearTimeout(timeout);
+      reject(error);
+    }
+  });
+}
+
+async function refreshOfflineCacheStatus(quiet = false) {
+  if (!offlineStorageSupported) {
+    renderOfflineCacheStatus({});
+    setOfflineControlsEnabled(false);
+    return;
+  }
+
+  if (!quiet) setOfflineStorageStatus("Checking cache status");
+  try {
+    const data = await sendServiceWorkerMessage({ type: "GET_CACHE_STATUS" });
+    renderOfflineCacheStatus(data.groups);
+    setOfflineControlsEnabled(true);
+    if (!quiet) setOfflineStorageStatus("Offline cache ready", "ready");
+  } catch (error) {
+    setOfflineControlsEnabled(false);
+    setOfflineStorageStatus(error.message, "error");
+  }
+}
+
+async function runOfflineCacheAction(button, pendingLabel, action) {
+  const originalLabel = button.textContent;
+  setOfflineControlsEnabled(false);
+  button.textContent = pendingLabel;
+  setOfflineStorageStatus(pendingLabel);
+
+  try {
+    const data = await action();
+    renderOfflineCacheStatus(data.groups);
+    setOfflineStorageStatus("Offline cache updated", "ready");
+  } catch (error) {
+    setOfflineStorageStatus(error.message, "error");
+  } finally {
+    button.textContent = originalLabel;
+    setOfflineControlsEnabled(true);
+  }
+}
+
+function cacheOfflineGroup(group, button) {
+  runOfflineCacheAction(button, "Caching", () => sendServiceWorkerMessage({ type: "CACHE_GROUP", group }));
+}
+
+function clearOfflineCache() {
+  runOfflineCacheAction(clearOfflineCacheButton, "Clearing", () =>
+    sendServiceWorkerMessage({ type: "CLEAR_OFFLINE_CACHE" }),
+  );
 }
 
 async function checkHealth() {
@@ -605,13 +768,57 @@ clearFavoritesButton.addEventListener("click", () => {
   if (lastAnswerData) renderAnswer(lastAnswerData);
 });
 
+cacheAppShellButton.addEventListener("click", () => {
+  cacheOfflineGroup("appShell", cacheAppShellButton);
+});
+
+cacheQuickReferenceButton.addEventListener("click", () => {
+  cacheOfflineGroup("quickReference", cacheQuickReferenceButton);
+});
+
+cacheHandbookButton.addEventListener("click", () => {
+  cacheOfflineGroup("handbook", cacheHandbookButton);
+});
+
+clearOfflineCacheButton.addEventListener("click", clearOfflineCache);
+
 window.addEventListener("online", checkHealth);
 window.addEventListener("offline", updateConnectionStatus);
 
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || !("MessageChannel" in window)) {
+    offlineStorageSupported = false;
+    renderOfflineCacheStatus({});
+    setOfflineStorageStatus("Offline cache controls unavailable", "error");
+    setOfflineControlsEnabled(false);
+    return;
+  }
+
+  setOfflineControlsEnabled(false);
+  try {
+    offlineServiceWorkerRegistration = await navigator.serviceWorker.register("/service-worker.js");
+    offlineServiceWorker = await waitForServiceWorkerActivation(offlineServiceWorkerRegistration);
+    offlineStorageSupported = true;
+    await refreshOfflineCacheStatus();
+  } catch (error) {
+    offlineStorageSupported = false;
+    renderOfflineCacheStatus({});
+    setOfflineStorageStatus(error.message || "Service worker registration failed.", "error");
+    setOfflineControlsEnabled(false);
+  }
+}
+
+setOfflineControlsEnabled(false);
+
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    offlineServiceWorker = navigator.serviceWorker.controller || offlineServiceWorker;
+    refreshOfflineCacheStatus(true);
   });
+  window.addEventListener("load", registerServiceWorker);
+} else {
+  renderOfflineCacheStatus({});
+  setOfflineStorageStatus("Offline cache controls unavailable", "error");
 }
 
 checkHealth();

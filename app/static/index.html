@@ -74,6 +74,45 @@
             <div id="favoritesList" class="memory-list"></div>
           </article>
         </section>
+
+        <section id="offlineStoragePanel" class="offline-storage" aria-labelledby="offlineStorageTitle">
+          <div class="offline-storage-header">
+            <div>
+              <h3 id="offlineStorageTitle">Offline Storage</h3>
+              <p id="offlineStorageStatus" class="offline-storage-status">Checking cache status</p>
+            </div>
+          </div>
+
+          <dl class="offline-storage-list">
+            <div class="offline-storage-item">
+              <dt>App shell</dt>
+              <dd>~52 KB</dd>
+              <dd id="appShellCacheState" class="cache-state">Checking</dd>
+            </div>
+            <div class="offline-storage-item">
+              <dt>Quick reference pack</dt>
+              <dd>estimated under 5 MB</dd>
+              <dd id="quickReferenceCacheState" class="cache-state">Checking</dd>
+            </div>
+            <div class="offline-storage-item">
+              <dt>Machinery&rsquo;s Handbook PDF</dt>
+              <dd>31 MB</dd>
+              <dd id="handbookCacheState" class="cache-state">Checking</dd>
+            </div>
+            <div class="offline-storage-item total">
+              <dt>Total with handbook</dt>
+              <dd>about 31 MB+</dd>
+              <dd></dd>
+            </div>
+          </dl>
+
+          <div class="offline-actions">
+            <button id="cacheAppShellButton" class="plain-button offline-button" type="button">Cache app shell</button>
+            <button id="cacheQuickReferenceButton" class="plain-button offline-button" type="button">Cache quick-reference pack</button>
+            <button id="cacheHandbookButton" class="plain-button offline-button" type="button">Cache handbook PDF</button>
+            <button id="clearOfflineCacheButton" class="plain-button offline-button danger-button" type="button">Clear offline cache</button>
+          </div>
+        </section>
       </section>
 
       <section id="answer" class="responses" aria-live="polite"></section>

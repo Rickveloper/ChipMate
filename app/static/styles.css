@@ -363,6 +363,121 @@ textarea:focus {
   font-weight: 800;
 }
 
+.offline-storage {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.offline-storage-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.offline-storage-header > div {
+  display: grid;
+  gap: 5px;
+}
+
+.offline-storage-status {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.offline-storage-status.ready {
+  color: var(--accent);
+}
+
+.offline-storage-status.error {
+  color: var(--danger);
+}
+
+.offline-storage-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.offline-storage-item {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(96px, auto) minmax(78px, auto);
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+
+.offline-storage-item:first-child {
+  border-top: 0;
+}
+
+.offline-storage-item dt,
+.offline-storage-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.offline-storage-item dt {
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.offline-storage-item dd {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.offline-storage-item.total dt,
+.offline-storage-item.total dd {
+  color: var(--text);
+}
+
+.cache-state {
+  justify-self: end;
+  width: fit-content;
+  min-width: 76px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cache-state.cached {
+  border-color: rgba(31, 122, 90, 0.35);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.offline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.offline-button {
+  min-height: 36px;
+}
+
+.danger-button {
+  border-color: rgba(180, 35, 24, 0.3);
+  color: var(--danger);
+}
+
 .responses {
   display: grid;
   gap: 14px;
@@ -540,8 +655,31 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .offline-storage {
+    grid-column: 1 / -1;
+  }
+
   .answer-card,
   .error-note {
     padding: 18px;
+  }
+}
+
+@media (max-width: 520px) {
+  .offline-storage-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .offline-storage-item dd {
+    text-align: left;
+  }
+
+  .cache-state {
+    justify-self: start;
+  }
+
+  .offline-button {
+    width: 100%;
   }
 }
