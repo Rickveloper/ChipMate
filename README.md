@@ -27,7 +27,7 @@ Local SFM values are conservative seed data stored in SQLite with source records
 
 v0.3 adds typing suggestions, recent searches, favorites, and refinement buttons that resubmit the current question with extra context. Recent searches and favorites are stored in browser localStorage.
 
-The local source list includes `reference/machinery-handbook-27th.pdf` as Machinery's Handbook 27th Edition, 2004. ChipMate uses that handbook as a local source label and curated lookup reference; generated answers should not quote large handbook sections.
+The local source list includes `reference/machinery-handbook-32-pocket.pdf",` as Machinery's Handbook 27th Edition, 2004. ChipMate uses that handbook as a local source label and curated lookup reference; generated answers should not quote large handbook sections.
 
 The Offline Storage settings let the browser cache the app shell, a small quick-reference pack, and the handbook PDF separately. The handbook is opt-in and is not cached by default. Keep the PDF local on Asgard under `reference/`; `reference/*.pdf` is ignored by git.
 
@@ -63,7 +63,7 @@ The SQLite database is created automatically at `app/chipmate.sqlite3` on startu
 - `GET /api/search?q=aluminum+hss` searches the SQLite FTS5 index
 - `GET /api/sources` lists local source records
 - `GET /api/offline/quick-reference` returns the offline quick-reference pack
-- `GET /reference/machinery-handbook-27th.pdf` serves the local ignored handbook PDF when present
+- `GET /reference/machinery-handbook-32-pocket.pdf` serves the local ignored handbook PDF when present
 - `GET /api/health` returns app status
 
 Example assistant request:

@@ -17,7 +17,7 @@ const CACHE_GROUPS = {
     "/api/sources",
   ],
   handbook: [
-    "/reference/machinery-handbook-27th.pdf",
+    "/reference/machinery-handbook-32-pocket.pdf",
   ],
 };
 const DEFAULT_CACHE_GROUPS = ["appShell"];

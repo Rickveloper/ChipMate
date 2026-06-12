@@ -21,7 +21,7 @@ from .database import DB_PATH, MATERIAL_SFM, REFERENCE_SOURCES, get_connection, 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 REFERENCE_DIR = BASE_DIR.parent / "reference"
-HANDBOOK_PDF = REFERENCE_DIR / "machinery-handbook-27th.pdf"
+HANDBOOK_PDF = REFERENCE_DIR / "machinery-handbook-32-pocket.pdf"
 
 
 @asynccontextmanager
@@ -52,12 +52,16 @@ def index() -> FileResponse:
 
 @app.get("/manifest.webmanifest")
 def manifest() -> FileResponse:
-    return FileResponse(STATIC_DIR / "manifest.webmanifest", media_type="application/manifest+json")
+    return FileResponse(
+        STATIC_DIR / "manifest.webmanifest", media_type="application/manifest+json"
+    )
 
 
 @app.get("/service-worker.js")
 def service_worker() -> FileResponse:
-    return FileResponse(STATIC_DIR / "service-worker.js", media_type="application/javascript")
+    return FileResponse(
+        STATIC_DIR / "service-worker.js", media_type="application/javascript"
+    )
 
 
 @app.get("/api/health")
@@ -90,13 +94,18 @@ def offline_quick_reference() -> dict[str, Any]:
 def assistant(request: AssistantRequest) -> dict[str, Any]:
     with get_connection(DB_PATH) as conn:
         try:
-            return build_assistant_response(conn, request.message, request.state, request.context)
+            return build_assistant_response(
+                conn, request.message, request.state, request.context
+            )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/api/search")
-def search(q: str = Query(default="", max_length=120), limit: int = Query(default=10, ge=1, le=25)):
+def search(
+    q: str = Query(default="", max_length=120),
+    limit: int = Query(default=10, ge=1, le=25),
+):
     with get_connection(DB_PATH) as conn:
         return {"query": q, "results": search_index(conn, q, limit)}
 
@@ -128,10 +137,12 @@ def sources() -> dict[str, list[dict[str, Any]]]:
     }
 
 
-@app.get("/reference/machinery-handbook-27th.pdf")
+@app.get("/reference/machinery-handbook-32-pocket.pdf")
 def machinery_handbook() -> FileResponse:
     if not HANDBOOK_PDF.is_file():
-        raise HTTPException(status_code=404, detail="Machinery's Handbook PDF is not installed locally.")
+        raise HTTPException(
+            status_code=404, detail="Machinery's Handbook PDF is not installed locally."
+        )
     return FileResponse(
         HANDBOOK_PDF,
         media_type="application/pdf",

@@ -18,10 +18,10 @@ MATERIAL_SFM = {
 REFERENCE_SOURCES = [
     {
         "slug": "machinery-handbook",
-        "title": "Machinery’s Handbook 27th Edition, 2004",
+        "title": "Machinery's Handbook 32 Pocket Companion",
         "publisher": "Industrial Press",
-        "url": "local://reference/machinery-handbook-27th.pdf",
-        "note": "Local reference at reference/machinery-handbook-27th.pdf. Use as a source label and curated lookup reference; do not quote large handbook sections in generated answers.",
+        "url": "local://reference/machinery-handbook-32-pocket.pdf",
+        "note": "Local reference at reference/machinery-handbook-32-pocket.pdf. Use as a source label and curated lookup reference; do not quote large handbook sections in generated answers.",
         "is_placeholder": 0,
     },
     {
