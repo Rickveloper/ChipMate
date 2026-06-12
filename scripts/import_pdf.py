@@ -48,7 +48,7 @@ def main() -> None:
         )
 
         conn.execute("DELETE FROM handbook_chunks WHERE source = ?", (PDF_PATH.name,))
-        conn.execute("DELETE FROM search_index WHERE kind = 'handbook'")
+        conn.execute("DELETE FROM search_index")
 
         count = 0
 
@@ -80,7 +80,7 @@ def main() -> None:
                         chunk,
                     ),
                 )
-
+                conn.execute("INSERT INTO search_index(search_index) VALUES('rebuild')")
                 count += 1
 
         conn.commit()
