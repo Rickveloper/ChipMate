@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "chipmate-";
-const CACHE_NAME = "chipmate-v0-6";
+const CACHE_NAME = "chipmate-v0-7";
 const CACHE_GROUPS = {
   appShell: [
     "/",
@@ -8,6 +8,7 @@ const CACHE_GROUPS = {
     "/static/app.js",
     "/manifest.webmanifest",
     "/service-worker.js",
+    "/static/service-worker.js",
     "/static/icons/icon.svg",
   ],
   quickReference: [
