@@ -15,7 +15,6 @@ CATEGORIES = [
     {"name": "Manual Machining", "slug": "manual-machining"},
     {"name": "CNC", "slug": "cnc"},
     {"name": "Formulas", "slug": "formulas"},
-    {"name": "Calculator", "slug": "calculator"},
     {"name": "Tap Drill Charts", "slug": "tap-drill-charts"},
     {"name": "Reamers", "slug": "reamers"},
     {"name": "Threading", "slug": "threading"},
@@ -31,7 +30,6 @@ CATEGORY_KEYWORDS = {
     "manual-machining": ("manual", "bridgeport", "knee mill", "engine lathe", "handwheel", "tailstock", "compound", "manual mill", "manual lathe", "indicate", "indicating", "dial in", "dialing in", "center", "centering", "chuck", "chuck setup", "4 jaw", "4-jaw", "four jaw", "four-jaw"),
     "cnc": ("cnc", "g-code", "gcode", "g54", "g55", "work offset", "tool length", "fixture offset", "cutter comp", "macro", "post", "program"),
     "formulas": ("formula", "calculate", "calculation", "convert", "conversion", "trig", "sine", "cosine", "radius", "diameter"),
-    "calculator": ("calculator", "machinist calculator", "offline calculator"),
     "tap-drill-charts": ("tap drill", "tap chart", "drill chart", "thread percent", "percent thread", "minor diameter", "tap size"),
     "reamers": ("reamer", "reaming", "ream", "chucking reamer", "reamed hole", "undersize", "oversize"),
     "threading": ("thread", "threading", "tpi", "pitch", "unc", "unf", "tap", "die", "single point", "thread mill"),
@@ -145,12 +143,6 @@ RESPONSE_TEMPLATES = {
         "steps": ["Write down the known values with units.", "Choose the formula for the operation and unit system.", "Solve once, then sanity-check the result against typical shop ranges.", "Adjust the final cutting data for rigidity, tool engagement, coolant, and material condition."],
         "formulas": [{"label": "RPM", "expression": "RPM = (SFM x 3.82) / diameter in inches"}, {"label": "Milling feed", "expression": "IPM = RPM x chip load per tooth x flute count"}, {"label": "Metric RPM", "expression": "RPM = (1000 x m/min) / (pi x diameter in mm)"}, {"label": "Tap drill, inch approximation", "expression": "Drill diameter = major diameter - (1 / TPI)"}, {"label": "Tap drill, metric approximation", "expression": "Drill diameter = major diameter - pitch"}],
         "sources": ["machinery-handbook", "tooling-manufacturer-data"], "related": ["Speeds & feeds", "Tap drill charts", "Thread pitch", "Unit conversion", "SFM"],
-    },
-    "calculator": {
-        "direct": "Use the offline calculator card in the ChipMate interface for quick shop math without a network request. Keep units consistent, especially for true position where X and Y error must use the same units.",
-        "steps": ["Open the Calculator category.", "Enter the known values in the matching calculator.", "Check the result units before using the value at the machine or inspection bench."],
-        "formulas": [{"label": "RPM", "expression": "RPM = (SFM x 3.82) / diameter in inches"}, {"label": "Surface speed", "expression": "SFM = (RPM x diameter in inches) / 3.82"}, {"label": "Milling feed", "expression": "IPM = RPM x chip load per tooth x flute count"}, {"label": "Inch tap drill approximation", "expression": "Drill diameter = major diameter - (1 / TPI)"}, {"label": "Metric tap drill approximation", "expression": "Drill diameter = major diameter - pitch"}, {"label": "Decimal inch to mm", "expression": "mm = inch x 25.4"}, {"label": "True position", "expression": "TP = 2 x sqrt(X error^2 + Y error^2)"}],
-        "sources": ["machinery-handbook", "tooling-manufacturer-data"], "related": ["Speeds & feeds", "Tap drill charts", "Unit conversion", "True position", "SFM"],
     },
     "tap-drill-charts": {
         "direct": "For common taps, use a tap drill chart first. The quick approximation is major diameter minus pitch, but standard drill sizes are chosen to hit a practical thread percentage rather than a perfect formula value.",

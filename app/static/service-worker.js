@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "chipmate-";
-const CACHE_NAME = "chipmate-v0-7";
+const CACHE_NAME = "chipmate-v0-8";
 const CACHE_GROUPS = {
   appShell: [
     "/",

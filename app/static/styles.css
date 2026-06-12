@@ -103,6 +103,7 @@ a {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -116,6 +117,12 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.top-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .brand {
@@ -149,6 +156,12 @@ a {
 
 .plain-button {
   padding: 0 12px;
+}
+
+.calculator-toggle.active {
+  border-color: rgba(31, 122, 90, 0.45);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .compact-button {
@@ -311,6 +324,11 @@ textarea:focus {
 .calculator-panel {
   display: grid;
   gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  box-shadow: var(--shadow);
+  padding: 12px;
 }
 
 .calculator-panel[hidden] {
@@ -318,8 +336,20 @@ textarea:focus {
 }
 
 .calculator-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calculator-panel-header > div {
   display: grid;
+  min-width: 0;
   gap: 5px;
+}
+
+.calculator-close-button {
+  flex: 0 0 auto;
 }
 
 .calculator-grid {

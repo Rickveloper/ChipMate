@@ -8,7 +8,6 @@ const FALLBACK_CATEGORIES = [
   { name: "Manual Machining", slug: "manual-machining" },
   { name: "CNC", slug: "cnc" },
   { name: "Formulas", slug: "formulas" },
-  { name: "Calculator", slug: "calculator" },
   { name: "Tap Drill Charts", slug: "tap-drill-charts" },
   { name: "Reamers", slug: "reamers" },
   { name: "Threading", slug: "threading" },
@@ -99,11 +98,6 @@ const CATEGORY_REFINEMENTS = {
     { label: "Shop range", context: "Add a practical shop sanity check for the calculated result." },
     { label: "Inspection checks", context: "Add checks to verify the calculated result in the shop." },
   ],
-  calculator: [
-    { label: "Math check", context: "Show the formula, units, and arithmetic assumptions." },
-    { label: "Shop range", context: "Add a practical shop sanity check for the calculated result." },
-    { label: "Inspection checks", context: "Add checks to verify the calculated result in the shop." },
-  ],
   threading: [
     { label: "Thread fit", context: "Focus on thread form, class of fit, pitch, and gaging." },
     { label: "Formula", context: "Show the thread or tap drill formula and unit assumptions." },
@@ -115,11 +109,13 @@ const form = document.querySelector("#assistantForm");
 const input = document.querySelector("#messageInput");
 const askButton = document.querySelector("#askButton");
 const newButton = document.querySelector("#newButton");
+const calculatorButton = document.querySelector("#calculatorButton");
 const categoryRail = document.querySelector("#categoryRail");
 const answerEl = document.querySelector("#answer");
 const statusEl = document.querySelector("#connectionStatus");
 const typingSuggestions = document.querySelector("#typingSuggestions");
 const calculatorPanel = document.querySelector("#calculatorPanel");
+const calculatorCloseButton = document.querySelector("#calculatorCloseButton");
 const recentPanel = document.querySelector("#recentPanel");
 const recentList = document.querySelector("#recentList");
 const favoritesPanel = document.querySelector("#favoritesPanel");
@@ -145,7 +141,7 @@ let offlineServiceWorkerRegistration = null;
 let offlineCacheRepairAttempted = false;
 
 const OFFLINE_CACHE_PREFIX = "chipmate-";
-const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.7";
+const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.8";
 
 const OFFLINE_CACHE_CONTROLS = [
   {
@@ -202,7 +198,9 @@ function writeStoredList(key, list) {
 }
 
 function getRecentSearches() {
-  return readStoredList(STORAGE_KEYS.recent).slice(0, MAX_RECENT);
+  return readStoredList(STORAGE_KEYS.recent)
+    .filter((item) => item.category !== "Calculator")
+    .slice(0, MAX_RECENT);
 }
 
 function getFavorites() {
@@ -217,6 +215,7 @@ function isFavorite(query) {
 function saveRecentSearch(query, data) {
   const cleanQuery = normalizeText(query);
   if (!cleanQuery) return;
+  if (data?.category?.slug === "calculator") return;
   const id = itemId(cleanQuery);
   const item = {
     id,
@@ -733,13 +732,15 @@ function calculateMachinistValues() {
   const mmToInch = calculatorNumber("mmToInchInput");
   setCalculatorResult("mmToInchResult", mmToInch !== null ? mmToInch / 25.4 : Number.NaN, "in", 5);
 
-  const truePositionX = calculatorNumber("truePositionXInput");
-  const truePositionY = calculatorNumber("truePositionYInput");
+  const drillPointDiameter = positiveCalculatorNumber("drillPointDiameterInput");
+  const drillPointAngle = positiveCalculatorNumber("drillPointAngleInput");
+  const drillPointDepth =
+    drillPointDiameter !== null && drillPointAngle !== null && drillPointAngle < 180
+      ? drillPointDiameter / (2 * Math.tan((drillPointAngle * Math.PI) / 360))
+      : Number.NaN;
   setCalculatorResult(
-    "truePositionResult",
-    truePositionX !== null && truePositionY !== null
-      ? 2 * Math.sqrt(truePositionX ** 2 + truePositionY ** 2)
-      : Number.NaN,
+    "drillPointResult",
+    drillPointDepth > 0 ? drillPointDepth : Number.NaN,
     "same units",
     4,
     4,
@@ -756,26 +757,26 @@ function initCalculator() {
 
 function hideCalculator() {
   if (calculatorPanel) calculatorPanel.hidden = true;
+  calculatorButton?.setAttribute("aria-expanded", "false");
+  calculatorButton?.classList.remove("active");
 }
 
 function showCalculator() {
   if (!calculatorPanel) return;
-  activeCategorySlug = "calculator";
-  lastAnswerData = null;
-  lastQuestion = "";
-  input.value = "";
   typingSuggestions.hidden = true;
-  clearNode(answerEl);
   calculatorPanel.hidden = false;
+  calculatorButton?.setAttribute("aria-expanded", "true");
+  calculatorButton?.classList.add("active");
   calculateMachinistValues();
-  renderCategories(currentCategories);
   window.requestAnimationFrame(() => {
     calculatorPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
 function renderCategories(categories) {
-  currentCategories = categories && categories.length ? categories : FALLBACK_CATEGORIES;
+  const sourceCategories = categories && categories.length ? categories : FALLBACK_CATEGORIES;
+  const visibleCategories = sourceCategories.filter((category) => category.slug !== "calculator");
+  currentCategories = visibleCategories.length ? visibleCategories : FALLBACK_CATEGORIES;
   clearNode(categoryRail);
   currentCategories.forEach((category) => {
     const button = createElement("button", "", category.name);
@@ -784,10 +785,6 @@ function renderCategories(categories) {
     button.dataset.category = category.name;
     button.classList.toggle("active", category.slug === activeCategorySlug);
     button.addEventListener("click", () => {
-      if (category.slug === "calculator") {
-        showCalculator();
-        return;
-      }
       hideCalculator();
       const prompt = `Give me practical guidance on ${category.name}.`;
       input.value = prompt;
@@ -1101,6 +1098,19 @@ newButton.addEventListener("click", () => {
   renderCategories(currentCategories);
   renderTypingSuggestions();
   input.focus();
+});
+
+calculatorButton.addEventListener("click", () => {
+  if (calculatorPanel?.hidden) {
+    showCalculator();
+    return;
+  }
+  hideCalculator();
+});
+
+calculatorCloseButton.addEventListener("click", () => {
+  hideCalculator();
+  calculatorButton?.focus();
 });
 
 clearRecentButton.addEventListener("click", () => {

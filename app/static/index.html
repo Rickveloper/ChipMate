@@ -17,6 +17,7 @@
       </div>
       <div class="top-actions">
         <button id="newButton" class="plain-button" type="button">New</button>
+        <button id="calculatorButton" class="plain-button calculator-toggle" type="button" aria-controls="calculatorPanel" aria-expanded="false">Calculator</button>
         <span id="connectionStatus" class="status-pill">Checking</span>
       </div>
     </header>
@@ -42,26 +43,13 @@
           </div>
         </form>
 
-        <div id="categoryRail" class="category-rail" aria-label="Machining categories">
-          <button type="button" data-slug="speeds-feeds" data-category="Speeds & Feeds">Speeds &amp; Feeds</button>
-          <button type="button" data-slug="tooling" data-category="Tooling">Tooling</button>
-          <button type="button" data-slug="materials" data-category="Materials">Materials</button>
-          <button type="button" data-slug="gdt" data-category="GD&T">GD&amp;T</button>
-          <button type="button" data-slug="inspection" data-category="Inspection">Inspection</button>
-          <button type="button" data-slug="blueprint-reading" data-category="Blueprint Reading">Blueprint Reading</button>
-          <button type="button" data-slug="manual-machining" data-category="Manual Machining">Manual Machining</button>
-          <button type="button" data-slug="cnc" data-category="CNC">CNC</button>
-          <button type="button" data-slug="formulas" data-category="Formulas">Formulas</button>
-          <button type="button" data-slug="calculator" data-category="Calculator">Calculator</button>
-          <button type="button" data-slug="tap-drill-charts" data-category="Tap Drill Charts">Tap Drill Charts</button>
-          <button type="button" data-slug="reamers" data-category="Reamers">Reamers</button>
-          <button type="button" data-slug="threading" data-category="Threading">Threading</button>
-        </div>
-
         <section id="calculatorPanel" class="calculator-panel" aria-labelledby="calculatorTitle" hidden>
           <div class="calculator-panel-header">
-            <p class="answer-kicker">Offline Tool</p>
-            <h2 id="calculatorTitle">Machinist Calculator</h2>
+            <div>
+              <p class="answer-kicker">Offline Tool</p>
+              <h2 id="calculatorTitle">Machinist Calculator</h2>
+            </div>
+            <button id="calculatorCloseButton" class="plain-button compact-button calculator-close-button" type="button">Close</button>
           </div>
 
           <div class="calculator-grid">
@@ -185,25 +173,40 @@
             </article>
 
             <article class="calculator-tool">
-              <h3>True Position</h3>
-              <p class="calculator-formula">TP = 2 x sqrt(x_error^2 + y_error^2)</p>
+              <h3>Drill Point Depth</h3>
+              <p class="calculator-formula">Depth = diameter / (2 x tan(point angle / 2))</p>
               <div class="calculator-fields">
-                <label class="calculator-field" for="truePositionXInput">
-                  <span>X error</span>
-                  <input id="truePositionXInput" type="number" inputmode="decimal" step="any" />
+                <label class="calculator-field" for="drillPointDiameterInput">
+                  <span>Drill diameter</span>
+                  <input id="drillPointDiameterInput" type="number" inputmode="decimal" min="0" step="any" />
                 </label>
-                <label class="calculator-field" for="truePositionYInput">
-                  <span>Y error</span>
-                  <input id="truePositionYInput" type="number" inputmode="decimal" step="any" />
+                <label class="calculator-field" for="drillPointAngleInput">
+                  <span>Point angle (deg)</span>
+                  <input id="drillPointAngleInput" type="number" inputmode="decimal" min="1" max="179" step="any" value="118" />
                 </label>
               </div>
               <div class="calculator-output">
                 <span>Result</span>
-                <output id="truePositionResult" class="calculator-result">--</output>
+                <output id="drillPointResult" class="calculator-result">--</output>
               </div>
             </article>
           </div>
         </section>
+
+        <div id="categoryRail" class="category-rail" aria-label="Machining categories">
+          <button type="button" data-slug="speeds-feeds" data-category="Speeds & Feeds">Speeds &amp; Feeds</button>
+          <button type="button" data-slug="tooling" data-category="Tooling">Tooling</button>
+          <button type="button" data-slug="materials" data-category="Materials">Materials</button>
+          <button type="button" data-slug="gdt" data-category="GD&T">GD&amp;T</button>
+          <button type="button" data-slug="inspection" data-category="Inspection">Inspection</button>
+          <button type="button" data-slug="blueprint-reading" data-category="Blueprint Reading">Blueprint Reading</button>
+          <button type="button" data-slug="manual-machining" data-category="Manual Machining">Manual Machining</button>
+          <button type="button" data-slug="cnc" data-category="CNC">CNC</button>
+          <button type="button" data-slug="formulas" data-category="Formulas">Formulas</button>
+          <button type="button" data-slug="tap-drill-charts" data-category="Tap Drill Charts">Tap Drill Charts</button>
+          <button type="button" data-slug="reamers" data-category="Reamers">Reamers</button>
+          <button type="button" data-slug="threading" data-category="Threading">Threading</button>
+        </div>
 
         <section class="memory-section" aria-label="Saved searches">
           <article id="recentPanel" class="memory-panel" hidden>
