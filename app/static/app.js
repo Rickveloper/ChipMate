@@ -141,7 +141,7 @@ let offlineServiceWorkerRegistration = null;
 let offlineCacheRepairAttempted = false;
 
 const OFFLINE_CACHE_PREFIX = "chipmate-";
-const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.8";
+const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.9";
 
 const OFFLINE_CACHE_CONTROLS = [
   {
@@ -162,6 +162,7 @@ const OFFLINE_CACHE_CONTROLS = [
 ];
 
 function clearNode(node) {
+  if (!node) return;
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
@@ -170,6 +171,11 @@ function createElement(tag, className, text) {
   if (className) element.className = className;
   if (text !== undefined && text !== null) element.textContent = text;
   return element;
+}
+
+function bindEvent(element, eventName, handler, options) {
+  if (!element) return;
+  element.addEventListener(eventName, handler, options);
 }
 
 function normalizeText(value) {
@@ -258,16 +264,16 @@ function renderSearchMemory() {
   const recent = getRecentSearches();
   const favorites = getFavorites();
 
-  recentPanel.hidden = recent.length === 0;
+  if (recentPanel) recentPanel.hidden = recent.length === 0;
   clearNode(recentList);
   recent.forEach((item) => {
-    recentList.appendChild(createMemoryItem(item, "Recent"));
+    recentList?.appendChild(createMemoryItem(item, "Recent"));
   });
 
-  favoritesPanel.hidden = favorites.length === 0;
+  if (favoritesPanel) favoritesPanel.hidden = favorites.length === 0;
   clearNode(favoritesList);
   favorites.forEach((item) => {
-    favoritesList.appendChild(createMemoryItem(item, "Favorite"));
+    favoritesList?.appendChild(createMemoryItem(item, "Favorite"));
   });
 }
 
@@ -276,14 +282,15 @@ function createMemoryItem(item, fallbackMeta) {
   button.type = "button";
   button.appendChild(createElement("span", "memory-title", item.query));
   button.appendChild(createElement("span", "memory-meta", item.category || item.title || fallbackMeta));
-  button.addEventListener("click", () => {
-    input.value = item.query;
+  bindEvent(button, "click", () => {
+    if (input) input.value = item.query;
     ask(item.query);
   });
   return button;
 }
 
 function setConnectionStatus(label, status) {
+  if (!statusEl) return;
   statusEl.textContent = label;
   statusEl.classList.toggle("online", status === "online");
   statusEl.classList.toggle("offline", status === "offline");
@@ -298,6 +305,7 @@ function updateConnectionStatus() {
 }
 
 function setOfflineStorageStatus(label, tone = "") {
+  if (!offlineStorageStatus) return;
   offlineStorageStatus.textContent = label;
   offlineStorageStatus.classList.toggle("ready", tone === "ready");
   offlineStorageStatus.classList.toggle("error", tone === "error");
@@ -306,12 +314,13 @@ function setOfflineStorageStatus(label, tone = "") {
 function setOfflineControlsEnabled(enabled) {
   const active = offlineStorageSupported && enabled;
   OFFLINE_CACHE_CONTROLS.forEach(({ button }) => {
-    button.disabled = !active;
+    if (button) button.disabled = !active;
   });
-  clearOfflineCacheButton.disabled = !active;
+  if (clearOfflineCacheButton) clearOfflineCacheButton.disabled = !active;
 }
 
 function setCacheState(element, cached) {
+  if (!element) return;
   element.textContent = cached ? "Cached" : "Not cached";
   element.classList.toggle("cached", cached);
 }
@@ -320,7 +329,7 @@ function renderOfflineCacheStatus(groups = {}) {
   OFFLINE_CACHE_CONTROLS.forEach(({ group, button, state }) => {
     const cached = Boolean(groups[group]);
     setCacheState(state, cached);
-    button.setAttribute("aria-pressed", cached ? "true" : "false");
+    button?.setAttribute("aria-pressed", cached ? "true" : "false");
   });
 }
 
@@ -608,9 +617,9 @@ async function refreshOfflineCacheStatus(quiet = false, allowRepair = true) {
 }
 
 async function runOfflineCacheAction(button, pendingLabel, action) {
-  const originalLabel = button.textContent;
+  const originalLabel = button?.textContent || "";
   setOfflineControlsEnabled(false);
-  button.textContent = pendingLabel;
+  if (button) button.textContent = pendingLabel;
   setOfflineStorageStatus(pendingLabel);
 
   try {
@@ -621,7 +630,7 @@ async function runOfflineCacheAction(button, pendingLabel, action) {
     logOfflineCacheFailure("Offline cache action failed.", error);
     setOfflineStorageStatus(offlineStatusErrorLabel(error), "error");
   } finally {
-    button.textContent = originalLabel;
+    if (button) button.textContent = originalLabel;
     setOfflineControlsEnabled(true);
   }
 }
@@ -750,7 +759,7 @@ function calculateMachinistValues() {
 function initCalculator() {
   if (!calculatorPanel) return;
   calculatorPanel.querySelectorAll("input").forEach((field) => {
-    field.addEventListener("input", calculateMachinistValues);
+    bindEvent(field, "input", calculateMachinistValues);
   });
   calculateMachinistValues();
 }
@@ -763,7 +772,7 @@ function hideCalculator() {
 
 function showCalculator() {
   if (!calculatorPanel) return;
-  typingSuggestions.hidden = true;
+  if (typingSuggestions) typingSuggestions.hidden = true;
   calculatorPanel.hidden = false;
   calculatorButton?.setAttribute("aria-expanded", "true");
   calculatorButton?.classList.add("active");
@@ -777,6 +786,7 @@ function renderCategories(categories) {
   const sourceCategories = categories && categories.length ? categories : FALLBACK_CATEGORIES;
   const visibleCategories = sourceCategories.filter((category) => category.slug !== "calculator");
   currentCategories = visibleCategories.length ? visibleCategories : FALLBACK_CATEGORIES;
+  if (!categoryRail) return;
   clearNode(categoryRail);
   currentCategories.forEach((category) => {
     const button = createElement("button", "", category.name);
@@ -784,10 +794,10 @@ function renderCategories(categories) {
     button.dataset.slug = category.slug;
     button.dataset.category = category.name;
     button.classList.toggle("active", category.slug === activeCategorySlug);
-    button.addEventListener("click", () => {
+    bindEvent(button, "click", () => {
       hideCalculator();
       const prompt = `Give me practical guidance on ${category.name}.`;
-      input.value = prompt;
+      if (input) input.value = prompt;
       ask(prompt);
     });
     categoryRail.appendChild(button);
@@ -807,6 +817,7 @@ async function loadCategories() {
 
 function renderLoading(query, contextLabel = "") {
   clearNode(answerEl);
+  if (!answerEl) return;
   const article = createElement("article", "answer-card loading-card");
   article.appendChild(createElement("p", "answer-kicker", contextLabel ? `Refining - ${contextLabel}` : "Working"));
   article.appendChild(createElement("h2", "", query || "Machining question"));
@@ -815,6 +826,7 @@ function renderLoading(query, contextLabel = "") {
 
 function renderError(message) {
   clearNode(answerEl);
+  if (!answerEl) return;
   const article = createElement("article", "error-note");
   article.textContent = message;
   answerEl.appendChild(article);
@@ -901,7 +913,7 @@ function appendRefinements(parent, data) {
   refinements.forEach((refinement) => {
     const button = createElement("button", "", refinement.label);
     button.type = "button";
-    button.addEventListener("click", () => {
+    bindEvent(button, "click", () => {
       const query = normalizeText(data.query || lastQuestion);
       const state = { ...(data.state || {}) };
       if (refinement.material) state.material = refinement.material;
@@ -945,7 +957,7 @@ function createFavoriteButton(data) {
     button.textContent = isFavorite(data.query) ? "Saved" : "Favorite";
     button.classList.toggle("saved", isFavorite(data.query));
   };
-  button.addEventListener("click", () => {
+  bindEvent(button, "click", () => {
     toggleFavorite(data);
     updateLabel();
   });
@@ -955,6 +967,7 @@ function createFavoriteButton(data) {
 
 function renderAnswer(data) {
   clearNode(answerEl);
+  if (!answerEl) return;
   lastAnswerData = data;
   lastQuestion = data.query || lastQuestion;
   activeCategorySlug = data.category?.slug || "";
@@ -1021,9 +1034,10 @@ function suggestionCandidates(query) {
 }
 
 function renderTypingSuggestions() {
+  if (!typingSuggestions) return;
   clearNode(typingSuggestions);
-  const query = normalizeText(input.value);
-  const inputIsActive = document.activeElement === input || form.contains(document.activeElement);
+  const query = normalizeText(input?.value || "");
+  const inputIsActive = Boolean(input && (document.activeElement === input || form?.contains(document.activeElement)));
   const suggestions = suggestionCandidates(query).filter((suggestion) => itemId(suggestion.prompt) !== itemId(query));
 
   if (!inputIsActive || suggestions.length === 0) {
@@ -1036,10 +1050,10 @@ function renderTypingSuggestions() {
     button.type = "button";
     button.appendChild(createElement("span", "suggestion-label", suggestion.label));
     if (suggestion.source) button.appendChild(createElement("span", "suggestion-source", suggestion.source));
-    button.addEventListener("click", () => {
-      input.value = suggestion.prompt;
+    bindEvent(button, "click", () => {
+      if (input) input.value = suggestion.prompt;
       typingSuggestions.hidden = true;
-      input.focus();
+      input?.focus();
     });
     typingSuggestions.appendChild(button);
   });
@@ -1049,12 +1063,12 @@ function renderTypingSuggestions() {
 async function ask(message, options = {}) {
   const query = normalizeText(message);
   if (!query) {
-    input.focus();
+    input?.focus();
     return;
   }
 
-  askButton.disabled = true;
-  typingSuggestions.hidden = true;
+  if (askButton) askButton.disabled = true;
+  if (typingSuggestions) typingSuggestions.hidden = true;
   hideCalculator();
   renderLoading(query, options.contextLabel || "");
 
@@ -1068,28 +1082,29 @@ async function ask(message, options = {}) {
     const data = await response.json();
     saveRecentSearch(query, data);
     renderAnswer(data);
-    input.value = "";
+    if (input) input.value = "";
   } catch (error) {
     renderError(navigator.onLine ? error.message : "Offline. Reconnect to ask ChipMate.");
   } finally {
-    askButton.disabled = false;
+    if (askButton) askButton.disabled = false;
   }
 }
 
-form.addEventListener("submit", (event) => {
+bindEvent(form, "submit", (event) => {
   event.preventDefault();
-  ask(input.value);
+  ask(input?.value || "");
 });
 
-input.addEventListener("input", renderTypingSuggestions);
-input.addEventListener("focus", renderTypingSuggestions);
+bindEvent(input, "input", renderTypingSuggestions);
+bindEvent(input, "focus", renderTypingSuggestions);
 
-document.addEventListener("click", (event) => {
-  if (!form.contains(event.target)) typingSuggestions.hidden = true;
+bindEvent(document, "click", (event) => {
+  if (form?.contains(event.target)) return;
+  if (typingSuggestions) typingSuggestions.hidden = true;
 });
 
-newButton.addEventListener("click", () => {
-  input.value = "";
+bindEvent(newButton, "click", () => {
+  if (input) input.value = "";
   activeCategorySlug = "";
   lastAnswerData = null;
   lastQuestion = "";
@@ -1097,51 +1112,47 @@ newButton.addEventListener("click", () => {
   clearNode(answerEl);
   renderCategories(currentCategories);
   renderTypingSuggestions();
-  input.focus();
+  input?.focus();
 });
 
-calculatorButton.addEventListener("click", () => {
-  if (calculatorPanel?.hidden) {
-    showCalculator();
-    return;
-  }
-  hideCalculator();
+bindEvent(calculatorButton, "click", () => {
+  showCalculator();
 });
 
-calculatorCloseButton.addEventListener("click", () => {
+bindEvent(calculatorCloseButton, "click", () => {
   hideCalculator();
   calculatorButton?.focus();
 });
 
-clearRecentButton.addEventListener("click", () => {
+bindEvent(clearRecentButton, "click", () => {
   writeStoredList(STORAGE_KEYS.recent, []);
   renderSearchMemory();
   renderTypingSuggestions();
 });
 
-clearFavoritesButton.addEventListener("click", () => {
+bindEvent(clearFavoritesButton, "click", () => {
   writeStoredList(STORAGE_KEYS.favorites, []);
   renderSearchMemory();
   renderTypingSuggestions();
   if (lastAnswerData) renderAnswer(lastAnswerData);
 });
 
-cacheAppShellButton.addEventListener("click", () => {
+bindEvent(cacheAppShellButton, "click", () => {
   cacheOfflineGroup("appShell", cacheAppShellButton);
 });
 
-cacheQuickReferenceButton.addEventListener("click", () => {
+bindEvent(cacheQuickReferenceButton, "click", () => {
   cacheOfflineGroup("quickReference", cacheQuickReferenceButton);
 });
 
-cacheHandbookButton.addEventListener("click", () => {
+bindEvent(cacheHandbookButton, "click", () => {
   cacheOfflineGroup("handbook", cacheHandbookButton);
 });
 
-clearOfflineCacheButton.addEventListener("click", clearOfflineCache);
+bindEvent(clearOfflineCacheButton, "click", clearOfflineCache);
 
-window.addEventListener("online", checkHealth);
-window.addEventListener("offline", updateConnectionStatus);
+bindEvent(window, "online", checkHealth);
+bindEvent(window, "offline", updateConnectionStatus);
 
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || !("MessageChannel" in window)) {
@@ -1170,11 +1181,11 @@ async function registerServiceWorker() {
 setOfflineControlsEnabled(false);
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
+  bindEvent(navigator.serviceWorker, "controllerchange", () => {
     offlineServiceWorker = navigator.serviceWorker.controller || offlineServiceWorker;
     refreshOfflineCacheStatus(true);
   });
-  window.addEventListener("load", registerServiceWorker);
+  bindEvent(window, "load", registerServiceWorker);
 } else {
   renderOfflineCacheStatus({});
   setOfflineStorageStatus("Offline cache controls unavailable", "error");
