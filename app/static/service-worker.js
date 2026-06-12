@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "chipmate-";
-const CACHE_NAME = "chipmate-v0-5";
+const CACHE_NAME = "chipmate-v0-6";
 const CACHE_GROUPS = {
   appShell: [
     "/",
@@ -35,9 +35,14 @@ async function cacheUrls(urls) {
   const cache = await caches.open(CACHE_NAME);
   await Promise.all(
     urls.map(async (url) => {
-      const response = await fetch(cacheRequest(url));
-      if (!response.ok) throw new Error(`Could not cache ${url}`);
-      await cache.put(url, response);
+      try {
+        const response = await fetch(cacheRequest(url));
+        if (!response.ok) throw new Error(`Could not cache ${url}: HTTP ${response.status}`);
+        await cache.put(url, response);
+      } catch (error) {
+        console.error("[ChipMate SW] Failed to cache offline URL.", { cacheName: CACHE_NAME, url }, error);
+        throw error;
+      }
     }),
   );
 }
@@ -77,7 +82,11 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );
@@ -112,6 +121,7 @@ self.addEventListener("message", (event) => {
 
         reply({ ok: false, error: "Unsupported service worker message." });
       } catch (error) {
+        console.error("[ChipMate SW] Offline cache message failed.", message.type, error);
         reply({ ok: false, error: error.message || "Offline cache action failed." });
       }
     })(),
@@ -127,7 +137,16 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
-      return fetch(request).catch(() => {
+      return fetch(request).catch((error) => {
+        console.warn(
+          "[ChipMate SW] Network fetch failed with no cached response.",
+          {
+            path,
+            mode: request.mode,
+            cacheName: CACHE_NAME,
+          },
+          error,
+        );
         if (request.mode === "navigate") return caches.match("/");
         if (OFFLINE_URLS.has(path)) throw new Error("Offline asset is not cached.");
         throw new Error("Offline and no cached response available.");

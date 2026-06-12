@@ -135,6 +135,10 @@ let lastQuestion = "";
 let offlineStorageSupported = false;
 let offlineServiceWorker = null;
 let offlineServiceWorkerRegistration = null;
+let offlineCacheRepairAttempted = false;
+
+const OFFLINE_CACHE_PREFIX = "chipmate-";
+const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.6";
 
 const OFFLINE_CACHE_CONTROLS = [
   {
@@ -314,10 +318,69 @@ function renderOfflineCacheStatus(groups = {}) {
   });
 }
 
+function getSessionFlag(key) {
+  try {
+    return sessionStorage.getItem(key) === "true";
+  } catch {
+    logOfflineCacheFailure("Could not read service worker reload flag from sessionStorage.");
+    return false;
+  }
+}
+
+function setSessionFlag(key) {
+  try {
+    sessionStorage.setItem(key, "true");
+    return true;
+  } catch {
+    logOfflineCacheFailure("Could not write service worker reload flag to sessionStorage.");
+    return false;
+  }
+}
+
+function clearSessionFlag(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    logOfflineCacheFailure("Could not clear service worker reload flag from sessionStorage.");
+  }
+}
+
+function logOfflineCacheFailure(message, error, context = {}) {
+  const details = {
+    hasController: Boolean(navigator.serviceWorker?.controller),
+    controllerState: navigator.serviceWorker?.controller?.state || "none",
+    serviceWorkerState: offlineServiceWorker?.state || "none",
+    ...context,
+  };
+
+  if (error) {
+    console.warn(`[ChipMate offline] ${message}`, details, error);
+    return;
+  }
+
+  console.warn(`[ChipMate offline] ${message}`, details);
+}
+
+function withTimeout(promise, message, timeoutMs = 10000) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
+
 async function getActiveServiceWorker() {
-  if (offlineServiceWorker) return offlineServiceWorker;
   const registration = offlineServiceWorkerRegistration || (await navigator.serviceWorker.ready);
-  return registration.active || navigator.serviceWorker.controller || registration.waiting || registration.installing;
+  const worker =
+    registration.active ||
+    navigator.serviceWorker.controller ||
+    registration.waiting ||
+    registration.installing ||
+    offlineServiceWorker;
+  offlineServiceWorker = worker;
+  return worker;
 }
 
 function waitForServiceWorkerActivation(registration) {
@@ -349,32 +412,172 @@ async function sendServiceWorkerMessage(message) {
   const worker = await getActiveServiceWorker();
   if (!worker) throw new Error("Service worker is not ready.");
 
+  console.debug("[ChipMate offline] Sending service worker message.", {
+    type: message.type,
+    workerState: worker.state,
+    hasController: Boolean(navigator.serviceWorker.controller),
+  });
+
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     const timeout = window.setTimeout(() => {
-      reject(new Error("Service worker did not respond."));
+      const error = new Error("Service worker did not respond.");
+      channel.port1.close();
+      logOfflineCacheFailure(`Service worker message timed out: ${message.type}`, error);
+      reject(error);
     }, 8000);
 
     channel.port1.onmessage = (event) => {
       window.clearTimeout(timeout);
+      channel.port1.close();
       const data = event.data || {};
       if (data.ok) {
         resolve(data);
       } else {
-        reject(new Error(data.error || "Offline cache action failed."));
+        const error = new Error(data.error || "Offline cache action failed.");
+        logOfflineCacheFailure(`Service worker message failed: ${message.type}`, error);
+        reject(error);
       }
+    };
+
+    channel.port1.onmessageerror = (event) => {
+      window.clearTimeout(timeout);
+      channel.port1.close();
+      const error = new Error("Service worker sent an unreadable response.");
+      logOfflineCacheFailure(`Service worker message response could not be read: ${message.type}`, error, {
+        event,
+      });
+      reject(error);
     };
 
     try {
       worker.postMessage(message, [channel.port2]);
     } catch (error) {
       window.clearTimeout(timeout);
+      channel.port1.close();
+      logOfflineCacheFailure(`Could not post service worker message: ${message.type}`, error);
       reject(error);
     }
   });
 }
 
-async function refreshOfflineCacheStatus(quiet = false) {
+function offlineStatusErrorLabel(error) {
+  if (error?.message === "Load failed") return "Offline cache temporarily unavailable";
+  return error?.message || "Offline cache status unavailable.";
+}
+
+async function clearChipMateCaches() {
+  if (!("caches" in window)) return;
+  const keys = await caches.keys();
+  const chipMateKeys = keys.filter((key) => key.startsWith(OFFLINE_CACHE_PREFIX));
+  console.info("[ChipMate offline] Clearing ChipMate caches.", { caches: chipMateKeys });
+  await Promise.all(chipMateKeys.map((key) => caches.delete(key)));
+}
+
+async function unregisterOriginServiceWorkers() {
+  if (!("serviceWorker" in navigator)) return;
+  if ("getRegistrations" in navigator.serviceWorker) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    console.info("[ChipMate offline] Unregistering service workers for recovery.", {
+      count: registrations.length,
+      scopes: registrations.map((registration) => registration.scope),
+    });
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (registration) {
+    console.info("[ChipMate offline] Unregistering service worker for recovery.", { scope: registration.scope });
+    await registration.unregister();
+  }
+}
+
+async function prepareServiceWorkerRegistration(registration) {
+  offlineServiceWorkerRegistration = registration;
+
+  try {
+    await registration.update();
+  } catch (error) {
+    logOfflineCacheFailure("Service worker update check failed.", error);
+  }
+
+  const activatedWorker = await waitForServiceWorkerActivation(registration);
+  const readyRegistration = await withTimeout(
+    navigator.serviceWorker.ready,
+    "Service worker ready timed out.",
+    12000,
+  );
+  offlineServiceWorkerRegistration = registration.active ? registration : readyRegistration || registration;
+  offlineServiceWorker =
+    offlineServiceWorkerRegistration.active || activatedWorker || readyRegistration?.active || null;
+  return offlineServiceWorkerRegistration;
+}
+
+function reloadOnceForServiceWorkerControl() {
+  if (navigator.serviceWorker.controller) {
+    clearSessionFlag(OFFLINE_CONTROLLER_RELOAD_KEY);
+    return false;
+  }
+
+  if (getSessionFlag(OFFLINE_CONTROLLER_RELOAD_KEY)) {
+    console.warn("[ChipMate offline] Service worker activated, but this page is still not controlled after one reload.");
+    return false;
+  }
+
+  if (!setSessionFlag(OFFLINE_CONTROLLER_RELOAD_KEY)) {
+    console.warn(
+      "[ChipMate offline] Service worker activated without controlling this page. Skipping reload because sessionStorage is unavailable.",
+    );
+    return false;
+  }
+
+  console.info("[ChipMate offline] Service worker activated without controlling this page. Reloading once.");
+  setOfflineStorageStatus("Offline cache ready, reloading", "ready");
+  window.location.reload();
+  return true;
+}
+
+async function repairOfflineCacheStatus(originalError, quiet = false) {
+  if (offlineCacheRepairAttempted) {
+    setOfflineControlsEnabled(false);
+    setOfflineStorageStatus(offlineStatusErrorLabel(originalError), "error");
+    return false;
+  }
+
+  offlineCacheRepairAttempted = true;
+  logOfflineCacheFailure("Offline cache status check failed. Attempting repair.", originalError);
+  if (!quiet) setOfflineStorageStatus("Repairing offline cache");
+  setOfflineControlsEnabled(false);
+
+  try {
+    await unregisterOriginServiceWorkers();
+    await clearChipMateCaches();
+    offlineServiceWorker = null;
+    offlineServiceWorkerRegistration = null;
+
+    const registration = await navigator.serviceWorker.register("/service-worker.js");
+    await prepareServiceWorkerRegistration(registration);
+    offlineStorageSupported = true;
+
+    if (reloadOnceForServiceWorkerControl()) return true;
+
+    const data = await sendServiceWorkerMessage({ type: "GET_CACHE_STATUS" });
+    renderOfflineCacheStatus(data.groups);
+    setOfflineControlsEnabled(true);
+    setOfflineStorageStatus("Offline cache repaired, reload if needed", "ready");
+    return true;
+  } catch (error) {
+    logOfflineCacheFailure("Offline cache repair failed.", error);
+    offlineStorageSupported = false;
+    renderOfflineCacheStatus({});
+    setOfflineControlsEnabled(false);
+    setOfflineStorageStatus("Offline cache repair failed", "error");
+    return false;
+  }
+}
+
+async function refreshOfflineCacheStatus(quiet = false, allowRepair = true) {
   if (!offlineStorageSupported) {
     renderOfflineCacheStatus({});
     setOfflineControlsEnabled(false);
@@ -388,8 +591,13 @@ async function refreshOfflineCacheStatus(quiet = false) {
     setOfflineControlsEnabled(true);
     if (!quiet) setOfflineStorageStatus("Offline cache ready", "ready");
   } catch (error) {
+    logOfflineCacheFailure("Offline cache status check failed.", error);
     setOfflineControlsEnabled(false);
-    setOfflineStorageStatus(error.message, "error");
+    if (allowRepair) {
+      await repairOfflineCacheStatus(error, quiet);
+      return;
+    }
+    setOfflineStorageStatus(offlineStatusErrorLabel(error), "error");
   }
 }
 
@@ -404,7 +612,8 @@ async function runOfflineCacheAction(button, pendingLabel, action) {
     renderOfflineCacheStatus(data.groups);
     setOfflineStorageStatus("Offline cache updated", "ready");
   } catch (error) {
-    setOfflineStorageStatus(error.message, "error");
+    logOfflineCacheFailure("Offline cache action failed.", error);
+    setOfflineStorageStatus(offlineStatusErrorLabel(error), "error");
   } finally {
     button.textContent = originalLabel;
     setOfflineControlsEnabled(true);
@@ -796,15 +1005,16 @@ async function registerServiceWorker() {
 
   setOfflineControlsEnabled(false);
   try {
-    offlineServiceWorkerRegistration = await navigator.serviceWorker.register("/service-worker.js");
-    offlineServiceWorker = await waitForServiceWorkerActivation(offlineServiceWorkerRegistration);
+    const registration = await navigator.serviceWorker.register("/service-worker.js");
+    await prepareServiceWorkerRegistration(registration);
     offlineStorageSupported = true;
+
+    if (reloadOnceForServiceWorkerControl()) return;
+
     await refreshOfflineCacheStatus();
   } catch (error) {
-    offlineStorageSupported = false;
-    renderOfflineCacheStatus({});
-    setOfflineStorageStatus(error.message || "Service worker registration failed.", "error");
-    setOfflineControlsEnabled(false);
+    logOfflineCacheFailure("Service worker registration failed. Attempting offline cache repair.", error);
+    await repairOfflineCacheStatus(error);
   }
 }
 
