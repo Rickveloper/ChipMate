@@ -8,6 +8,7 @@ const FALLBACK_CATEGORIES = [
   { name: "Manual Machining", slug: "manual-machining" },
   { name: "CNC", slug: "cnc" },
   { name: "Formulas", slug: "formulas" },
+  { name: "Calculator", slug: "calculator" },
   { name: "Tap Drill Charts", slug: "tap-drill-charts" },
   { name: "Reamers", slug: "reamers" },
   { name: "Threading", slug: "threading" },
@@ -98,6 +99,11 @@ const CATEGORY_REFINEMENTS = {
     { label: "Shop range", context: "Add a practical shop sanity check for the calculated result." },
     { label: "Inspection checks", context: "Add checks to verify the calculated result in the shop." },
   ],
+  calculator: [
+    { label: "Math check", context: "Show the formula, units, and arithmetic assumptions." },
+    { label: "Shop range", context: "Add a practical shop sanity check for the calculated result." },
+    { label: "Inspection checks", context: "Add checks to verify the calculated result in the shop." },
+  ],
   threading: [
     { label: "Thread fit", context: "Focus on thread form, class of fit, pitch, and gaging." },
     { label: "Formula", context: "Show the thread or tap drill formula and unit assumptions." },
@@ -113,6 +119,7 @@ const categoryRail = document.querySelector("#categoryRail");
 const answerEl = document.querySelector("#answer");
 const statusEl = document.querySelector("#connectionStatus");
 const typingSuggestions = document.querySelector("#typingSuggestions");
+const calculatorPanel = document.querySelector("#calculatorPanel");
 const recentPanel = document.querySelector("#recentPanel");
 const recentList = document.querySelector("#recentList");
 const favoritesPanel = document.querySelector("#favoritesPanel");
@@ -138,7 +145,7 @@ let offlineServiceWorkerRegistration = null;
 let offlineCacheRepairAttempted = false;
 
 const OFFLINE_CACHE_PREFIX = "chipmate-";
-const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.6";
+const OFFLINE_CONTROLLER_RELOAD_KEY = "chipmate.serviceWorkerControllerReloaded.v0.7";
 
 const OFFLINE_CACHE_CONTROLS = [
   {
@@ -642,6 +649,131 @@ async function checkHealth() {
   }
 }
 
+function calculatorNumber(id) {
+  const element = document.getElementById(id);
+  const rawValue = element?.value.trim() || "";
+  if (!rawValue) return null;
+  const value = Number(rawValue);
+  return Number.isFinite(value) ? value : null;
+}
+
+function positiveCalculatorNumber(id) {
+  const value = calculatorNumber(id);
+  return value !== null && value > 0 ? value : null;
+}
+
+function formatCalculatorNumber(value, maximumFractionDigits, minimumFractionDigits = 0) {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits,
+    minimumFractionDigits,
+  });
+}
+
+function setCalculatorResult(id, value, unit, maximumFractionDigits, minimumFractionDigits = 0) {
+  const output = document.getElementById(id);
+  if (!output) return;
+
+  if (!Number.isFinite(value)) {
+    output.textContent = "--";
+    output.classList.remove("ready");
+    return;
+  }
+
+  output.textContent =
+    `${formatCalculatorNumber(value, maximumFractionDigits, minimumFractionDigits)} ${unit}`.trim();
+  output.classList.add("ready");
+}
+
+function calculateMachinistValues() {
+  const rpmSfm = positiveCalculatorNumber("rpmSfmInput");
+  const rpmDiameter = positiveCalculatorNumber("rpmDiameterInput");
+  setCalculatorResult(
+    "rpmResult",
+    rpmSfm !== null && rpmDiameter !== null ? (rpmSfm * 3.82) / rpmDiameter : Number.NaN,
+    "RPM",
+    0,
+  );
+
+  const sfmRpm = positiveCalculatorNumber("sfmRpmInput");
+  const sfmDiameter = positiveCalculatorNumber("sfmDiameterInput");
+  setCalculatorResult(
+    "sfmResult",
+    sfmRpm !== null && sfmDiameter !== null ? (sfmRpm * sfmDiameter) / 3.82 : Number.NaN,
+    "SFM",
+    2,
+  );
+
+  const feedRpm = positiveCalculatorNumber("feedRpmInput");
+  const feedChipLoad = positiveCalculatorNumber("feedChipLoadInput");
+  const feedFlutes = positiveCalculatorNumber("feedFlutesInput");
+  setCalculatorResult(
+    "feedResult",
+    feedRpm !== null && feedChipLoad !== null && feedFlutes !== null
+      ? feedRpm * feedChipLoad * feedFlutes
+      : Number.NaN,
+    "IPM",
+    3,
+  );
+
+  const inchTapMajor = positiveCalculatorNumber("inchTapMajorInput");
+  const inchTapTpi = positiveCalculatorNumber("inchTapTpiInput");
+  const inchTapDrill =
+    inchTapMajor !== null && inchTapTpi !== null ? inchTapMajor - 1 / inchTapTpi : Number.NaN;
+  setCalculatorResult("inchTapResult", inchTapDrill > 0 ? inchTapDrill : Number.NaN, "in", 4, 4);
+
+  const metricTapMajor = positiveCalculatorNumber("metricTapMajorInput");
+  const metricTapPitch = positiveCalculatorNumber("metricTapPitchInput");
+  const metricTapDrill =
+    metricTapMajor !== null && metricTapPitch !== null ? metricTapMajor - metricTapPitch : Number.NaN;
+  setCalculatorResult("metricTapResult", metricTapDrill > 0 ? metricTapDrill : Number.NaN, "mm", 3, 3);
+
+  const inchToMm = calculatorNumber("inchToMmInput");
+  setCalculatorResult("inchToMmResult", inchToMm !== null ? inchToMm * 25.4 : Number.NaN, "mm", 4);
+
+  const mmToInch = calculatorNumber("mmToInchInput");
+  setCalculatorResult("mmToInchResult", mmToInch !== null ? mmToInch / 25.4 : Number.NaN, "in", 5);
+
+  const truePositionX = calculatorNumber("truePositionXInput");
+  const truePositionY = calculatorNumber("truePositionYInput");
+  setCalculatorResult(
+    "truePositionResult",
+    truePositionX !== null && truePositionY !== null
+      ? 2 * Math.sqrt(truePositionX ** 2 + truePositionY ** 2)
+      : Number.NaN,
+    "same units",
+    4,
+    4,
+  );
+}
+
+function initCalculator() {
+  if (!calculatorPanel) return;
+  calculatorPanel.querySelectorAll("input").forEach((field) => {
+    field.addEventListener("input", calculateMachinistValues);
+  });
+  calculateMachinistValues();
+}
+
+function hideCalculator() {
+  if (calculatorPanel) calculatorPanel.hidden = true;
+}
+
+function showCalculator() {
+  if (!calculatorPanel) return;
+  activeCategorySlug = "calculator";
+  lastAnswerData = null;
+  lastQuestion = "";
+  input.value = "";
+  typingSuggestions.hidden = true;
+  clearNode(answerEl);
+  calculatorPanel.hidden = false;
+  calculateMachinistValues();
+  renderCategories(currentCategories);
+  window.requestAnimationFrame(() => {
+    calculatorPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function renderCategories(categories) {
   currentCategories = categories && categories.length ? categories : FALLBACK_CATEGORIES;
   clearNode(categoryRail);
@@ -652,6 +784,11 @@ function renderCategories(categories) {
     button.dataset.category = category.name;
     button.classList.toggle("active", category.slug === activeCategorySlug);
     button.addEventListener("click", () => {
+      if (category.slug === "calculator") {
+        showCalculator();
+        return;
+      }
+      hideCalculator();
       const prompt = `Give me practical guidance on ${category.name}.`;
       input.value = prompt;
       ask(prompt);
@@ -921,6 +1058,7 @@ async function ask(message, options = {}) {
 
   askButton.disabled = true;
   typingSuggestions.hidden = true;
+  hideCalculator();
   renderLoading(query, options.contextLabel || "");
 
   try {
@@ -958,6 +1096,7 @@ newButton.addEventListener("click", () => {
   activeCategorySlug = "";
   lastAnswerData = null;
   lastQuestion = "";
+  hideCalculator();
   clearNode(answerEl);
   renderCategories(currentCategories);
   renderTypingSuggestions();
@@ -1033,4 +1172,5 @@ if ("serviceWorker" in navigator) {
 
 checkHealth();
 loadCategories();
+initCalculator();
 renderSearchMemory();

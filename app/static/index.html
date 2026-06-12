@@ -52,10 +52,158 @@
           <button type="button" data-slug="manual-machining" data-category="Manual Machining">Manual Machining</button>
           <button type="button" data-slug="cnc" data-category="CNC">CNC</button>
           <button type="button" data-slug="formulas" data-category="Formulas">Formulas</button>
+          <button type="button" data-slug="calculator" data-category="Calculator">Calculator</button>
           <button type="button" data-slug="tap-drill-charts" data-category="Tap Drill Charts">Tap Drill Charts</button>
           <button type="button" data-slug="reamers" data-category="Reamers">Reamers</button>
           <button type="button" data-slug="threading" data-category="Threading">Threading</button>
         </div>
+
+        <section id="calculatorPanel" class="calculator-panel" aria-labelledby="calculatorTitle" hidden>
+          <div class="calculator-panel-header">
+            <p class="answer-kicker">Offline Tool</p>
+            <h2 id="calculatorTitle">Machinist Calculator</h2>
+          </div>
+
+          <div class="calculator-grid">
+            <article class="calculator-tool">
+              <h3>RPM From SFM</h3>
+              <p class="calculator-formula">RPM = (SFM x 3.82) / diameter</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="rpmSfmInput">
+                  <span>SFM</span>
+                  <input id="rpmSfmInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+                <label class="calculator-field" for="rpmDiameterInput">
+                  <span>Tool diameter (in)</span>
+                  <input id="rpmDiameterInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+              </div>
+              <div class="calculator-output">
+                <span>Result</span>
+                <output id="rpmResult" class="calculator-result">--</output>
+              </div>
+            </article>
+
+            <article class="calculator-tool">
+              <h3>SFM From RPM</h3>
+              <p class="calculator-formula">SFM = (RPM x diameter) / 3.82</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="sfmRpmInput">
+                  <span>RPM</span>
+                  <input id="sfmRpmInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+                <label class="calculator-field" for="sfmDiameterInput">
+                  <span>Tool diameter (in)</span>
+                  <input id="sfmDiameterInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+              </div>
+              <div class="calculator-output">
+                <span>Result</span>
+                <output id="sfmResult" class="calculator-result">--</output>
+              </div>
+            </article>
+
+            <article class="calculator-tool">
+              <h3>Milling Feed Rate</h3>
+              <p class="calculator-formula">IPM = RPM x chip load x flute count</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="feedRpmInput">
+                  <span>RPM</span>
+                  <input id="feedRpmInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+                <label class="calculator-field" for="feedChipLoadInput">
+                  <span>Chip load (IPT)</span>
+                  <input id="feedChipLoadInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+                <label class="calculator-field" for="feedFlutesInput">
+                  <span>Flute count</span>
+                  <input id="feedFlutesInput" type="number" inputmode="numeric" min="1" step="1" />
+                </label>
+              </div>
+              <div class="calculator-output">
+                <span>Result</span>
+                <output id="feedResult" class="calculator-result">--</output>
+              </div>
+            </article>
+
+            <article class="calculator-tool">
+              <h3>Inch Tap Drill</h3>
+              <p class="calculator-formula">Drill diameter = major diameter - (1 / TPI)</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="inchTapMajorInput">
+                  <span>Major diameter (in)</span>
+                  <input id="inchTapMajorInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+                <label class="calculator-field" for="inchTapTpiInput">
+                  <span>TPI</span>
+                  <input id="inchTapTpiInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+              </div>
+              <div class="calculator-output">
+                <span>Result</span>
+                <output id="inchTapResult" class="calculator-result">--</output>
+              </div>
+            </article>
+
+            <article class="calculator-tool">
+              <h3>Metric Tap Drill</h3>
+              <p class="calculator-formula">Drill diameter = major diameter - pitch</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="metricTapMajorInput">
+                  <span>Major diameter (mm)</span>
+                  <input id="metricTapMajorInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+                <label class="calculator-field" for="metricTapPitchInput">
+                  <span>Pitch (mm)</span>
+                  <input id="metricTapPitchInput" type="number" inputmode="decimal" min="0" step="any" />
+                </label>
+              </div>
+              <div class="calculator-output">
+                <span>Result</span>
+                <output id="metricTapResult" class="calculator-result">--</output>
+              </div>
+            </article>
+
+            <article class="calculator-tool">
+              <h3>Decimal Inch / MM</h3>
+              <p class="calculator-formula">mm = inch x 25.4, inch = mm / 25.4</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="inchToMmInput">
+                  <span>Decimal inch</span>
+                  <input id="inchToMmInput" type="number" inputmode="decimal" step="any" />
+                </label>
+                <label class="calculator-field" for="mmToInchInput">
+                  <span>Millimeters</span>
+                  <input id="mmToInchInput" type="number" inputmode="decimal" step="any" />
+                </label>
+              </div>
+              <div class="calculator-output split-output">
+                <span>Results</span>
+                <output id="inchToMmResult" class="calculator-result">--</output>
+                <output id="mmToInchResult" class="calculator-result">--</output>
+              </div>
+            </article>
+
+            <article class="calculator-tool">
+              <h3>True Position</h3>
+              <p class="calculator-formula">TP = 2 x sqrt(x_error^2 + y_error^2)</p>
+              <div class="calculator-fields">
+                <label class="calculator-field" for="truePositionXInput">
+                  <span>X error</span>
+                  <input id="truePositionXInput" type="number" inputmode="decimal" step="any" />
+                </label>
+                <label class="calculator-field" for="truePositionYInput">
+                  <span>Y error</span>
+                  <input id="truePositionYInput" type="number" inputmode="decimal" step="any" />
+                </label>
+              </div>
+              <div class="calculator-output">
+                <span>Result</span>
+                <output id="truePositionResult" class="calculator-result">--</output>
+              </div>
+            </article>
+          </div>
+        </section>
 
         <section class="memory-section" aria-label="Saved searches">
           <article id="recentPanel" class="memory-panel" hidden>

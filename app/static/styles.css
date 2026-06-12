@@ -35,6 +35,7 @@ body {
 }
 
 button,
+input,
 textarea {
   font: inherit;
 }
@@ -305,6 +306,100 @@ textarea:focus {
   border-color: rgba(31, 122, 90, 0.32);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.calculator-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.calculator-panel[hidden] {
+  display: none;
+}
+
+.calculator-panel-header {
+  display: grid;
+  gap: 5px;
+}
+
+.calculator-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.calculator-tool {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+
+.calculator-formula {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.calculator-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.calculator-field {
+  display: grid;
+  gap: 5px;
+}
+
+.calculator-field span,
+.calculator-output span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.calculator-field input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--text);
+  outline: none;
+  padding: 0 10px;
+}
+
+.calculator-field input:focus {
+  border-color: rgba(31, 122, 90, 0.48);
+  box-shadow: 0 0 0 3px rgba(31, 122, 90, 0.16);
+}
+
+.calculator-output {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.calculator-result {
+  min-height: 31px;
+  color: var(--muted);
+  font-size: 1.28rem;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.calculator-result.ready {
+  color: var(--accent);
+}
+
+.split-output {
+  gap: 7px;
 }
 
 .memory-section {
@@ -650,6 +745,14 @@ textarea:focus {
     grid-column: 1 / -1;
   }
 
+  .calculator-panel {
+    grid-column: 1 / -1;
+  }
+
+  .calculator-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .memory-section {
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -662,6 +765,12 @@ textarea:focus {
   .answer-card,
   .error-note {
     padding: 18px;
+  }
+}
+
+@media (min-width: 1020px) {
+  .calculator-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
